@@ -46,3 +46,4 @@ public class ArtsBasket {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

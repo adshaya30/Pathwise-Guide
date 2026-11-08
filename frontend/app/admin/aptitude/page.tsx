@@ -1,51 +1,35 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   getAptitudes,
   createAptitude,
   updateAptitude,
   deleteAptitude,
-  getCourses,
-  getUniversities,
 } from '@/services/adminApi';
-import { AptitudeRequirement, Course, University } from '@/types/admin';
+import { AptitudeRequirement } from '@/types/admin';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Modal } from '@/components/admin/Modal';
 
 export default function AptitudeRequirementsPage() {
   const [aptitudes, setAptitudes] = useState<AptitudeRequirement[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [universities, setUniversities] = useState<University[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modal
+  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<AptitudeRequirement>>({
-    courseId: '',
-    courseName: '',
-    universityId: '',
+    courseOfStudy: '',
     universityName: '',
-    testName: '',
-    testDescription: '',
-    passingCriteria: 'Minimum 50% in aptitude examination',
-    applicationDeadline: '',
-    conductedBy: '',
+    uniCode: '',
   });
 
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [aList, cList, uList] = await Promise.all([
-        getAptitudes(),
-        getCourses(),
-        getUniversities(),
-      ]);
-      setAptitudes(aList);
-      setCourses(cList);
-      setUniversities(uList);
+      const data = await getAptitudes();
+      setAptitudes(data);
     } catch (err: any) {
       alert('Failed to load aptitude requirements: ' + err.message);
     } finally {
@@ -60,22 +44,20 @@ export default function AptitudeRequirementsPage() {
   const handleOpenCreate = () => {
     setEditingId(null);
     setFormData({
-      courseId: courses[0]?.id || '',
-      courseName: courses[0]?.name || '',
-      universityId: universities[0]?.id || '',
-      universityName: universities[0]?.name || '',
-      testName: 'Aptitude & Practical Test',
-      testDescription: '',
-      passingCriteria: 'Minimum 50% marks',
-      applicationDeadline: 'Within 2 weeks of UGC handbook publication',
-      conductedBy: universities[0]?.name || '',
+      courseOfStudy: '',
+      universityName: '',
+      uniCode: '',
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (a: AptitudeRequirement) => {
     setEditingId(a.id);
-    setFormData({ ...a });
+    setFormData({
+      courseOfStudy: a.courseOfStudy || a.courseName || '',
+      universityName: a.universityName || '',
+      uniCode: a.uniCode || '',
+    });
     setIsModalOpen(true);
   };
 
@@ -92,10 +74,24 @@ export default function AptitudeRequirementsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const course = formData.courseOfStudy?.trim().toUpperCase() || '';
+      const uni = formData.universityName?.trim().toUpperCase() || '';
+      const code = formData.uniCode?.trim().toUpperCase() || '';
+
+      const payload: Partial<AptitudeRequirement> = {
+        courseOfStudy: course,
+        courseName: course,
+        universityName: uni,
+        uniCode: code,
+        testName: 'Practical / Aptitude Test',
+        conductedBy: uni,
+        passingCriteria: 'Pass in practical/aptitude test in addition to cut-off mark',
+      };
+
       if (editingId) {
-        await updateAptitude(editingId, formData);
+        await updateAptitude(editingId, payload);
       } else {
-        await createAptitude(formData);
+        await createAptitude(payload);
       }
       setIsModalOpen(false);
       loadData();
@@ -104,102 +100,152 @@ export default function AptitudeRequirementsPage() {
     }
   };
 
-  const filtered = aptitudes.filter((a) => {
-    if (!searchQuery.trim()) return true;
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return aptitudes;
     const q = searchQuery.toLowerCase();
-    return (
-      a.courseName.toLowerCase().includes(q) ||
-      a.testName.toLowerCase().includes(q) ||
-      (a.universityName || '').toLowerCase().includes(q)
-    );
-  });
+    return aptitudes.filter((a) => {
+      const course = (a.courseOfStudy || a.courseName || '').toLowerCase();
+      const uni = (a.universityName || '').toLowerCase();
+      const code = (a.uniCode || '').toLowerCase();
+      return course.includes(q) || uni.includes(q) || code.includes(q);
+    });
+  }, [aptitudes, searchQuery]);
+
+  const stats = useMemo(() => {
+    const totalRecords = aptitudes.length;
+    const uniqueCourses = new Set(
+      aptitudes.map((a) => a.courseOfStudy || a.courseName).filter(Boolean)
+    ).size;
+    const uniqueInstitutes = new Set(
+      aptitudes.map((a) => a.universityName).filter(Boolean)
+    ).size;
+    return { totalRecords, uniqueCourses, uniqueInstitutes };
+  }, [aptitudes]);
 
   return (
     <div className="space-y-6">
       <AdminHeader
         title="Aptitude Requirements Management"
-        description="Courses requiring university-conducted aptitude or practical tests (e.g. Architecture, Design, IT & Management)."
+        description="Courses requiring university-conducted practical or aptitude tests prior to admission."
       />
 
+      {/* UGC Handbook Official Instruction Banner */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-xs font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-amber-600 text-white">
+            UGC Handbook Requirement
+          </span>
+          <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100 uppercase tracking-wide">
+            Requirement to Pass the Practical / Aptitude Test
+          </h3>
+        </div>
+        <p className="text-xs text-amber-900/80 dark:text-amber-200/80 leading-relaxed">
+          Every candidate who has listed undermentioned courses of study among his/her preferences should pass the practical/aptitude test which will be conducted by the respective universities. The university concerned will publish a press notice calling for applications. In order to consider for the course of study, it is compulsory to fulfill the cut-off mark of the relevant course of study in addition to passing the practical/aptitude test.
+        </p>
+      </div>
+
+      {/* Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
+          <div className="text-xs font-medium text-gray-500 dark:text-zinc-400">Total Aptitude Offerings</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-zinc-100 mt-1">{stats.totalRecords}</div>
+        </div>
+        <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
+          <div className="text-xs font-medium text-gray-500 dark:text-zinc-400">Distinct Courses of Study</div>
+          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{stats.uniqueCourses}</div>
+        </div>
+        <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
+          <div className="text-xs font-medium text-gray-500 dark:text-zinc-400">Universities / Campuses / Institutes</div>
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{stats.uniqueInstitutes}</div>
+        </div>
+      </div>
+
+      {/* Search & Actions */}
       <div className="flex items-center justify-between gap-4">
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by course, test or university..."
-          className="px-3.5 py-2 text-xs bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-lg w-80 text-gray-900 dark:text-zinc-100 shadow-xs"
+          placeholder="Search by course of study, university/institute or uni-code..."
+          className="px-3.5 py-2 text-xs bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-lg w-96 text-gray-900 dark:text-zinc-100 shadow-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         />
 
         <button
           onClick={handleOpenCreate}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
         >
-          <span>+ Add Aptitude Test</span>
+          <span>+ Add Aptitude Test Course</span>
         </button>
       </div>
 
+      {/* UGC Handbook Screenshot 5 Exact Table Layout */}
       <div className="bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="bg-gray-50/75 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase">
-                <th className="px-4 py-3.5">Course Name</th>
-                <th className="px-4 py-3.5">Test Name</th>
-                <th className="px-4 py-3.5">Conducted By</th>
-                <th className="px-4 py-3.5">Passing Criteria</th>
-                <th className="px-4 py-3.5">Application Deadline</th>
-                <th className="px-4 py-3.5 text-right">Actions</th>
+              <tr className="bg-gray-100/90 dark:bg-zinc-900/90 border-b border-gray-200 dark:border-zinc-800 text-xs font-bold text-gray-700 dark:text-zinc-300">
+                <th className="px-5 py-3.5 border-r border-gray-200 dark:border-zinc-800">
+                  Course of Study
+                </th>
+                <th className="px-5 py-3.5 border-r border-gray-200 dark:border-zinc-800">
+                  University / Campus / Institute
+                </th>
+                <th className="px-4 py-3.5 text-center border-r border-gray-200 dark:border-zinc-800">
+                  Uni-Code
+                </th>
+                <th className="px-5 py-3.5 text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-900">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     Loading aptitude requirements...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
-                    No aptitude requirements configured.
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
+                    No aptitude requirements found.
                   </td>
                 </tr>
               ) : (
-                filtered.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60">
-                    <td className="px-4 py-3.5 font-semibold text-gray-900 dark:text-zinc-100">
-                      {a.courseName}
-                    </td>
-                    <td className="px-4 py-3.5 font-medium text-indigo-700 dark:text-indigo-400">
-                      {a.testName}
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-600 dark:text-zinc-300">
-                      {a.conductedBy || a.universityName || 'Respective University'}
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-500">
-                      {a.passingCriteria || '—'}
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-500">
-                      {a.applicationDeadline || '—'}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(a)}
-                          className="px-2.5 py-1 text-xs text-indigo-600 hover:bg-indigo-50 rounded"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(a.id)}
-                          className="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 rounded"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filtered.map((a) => {
+                  const courseTitle = a.courseOfStudy || a.courseName;
+                  return (
+                    <tr key={a.id} className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60 transition-colors">
+                      <td className="px-5 py-3.5 font-bold uppercase text-xs tracking-wide text-gray-900 dark:text-zinc-100 border-r border-gray-100 dark:border-zinc-900">
+                        {courseTitle}
+                      </td>
+                      <td className="px-5 py-3.5 font-medium text-xs uppercase tracking-wide text-gray-700 dark:text-zinc-300 border-r border-gray-100 dark:border-zinc-900">
+                        {a.universityName || 'Respective University'}
+                      </td>
+                      <td className="px-4 py-3.5 text-center border-r border-gray-100 dark:border-zinc-900">
+                        <span className="inline-block px-2.5 py-1 text-xs font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 rounded-md">
+                          {a.uniCode || '—'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEdit(a)}
+                            className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(a.id)}
+                            className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -210,101 +256,65 @@ export default function AptitudeRequirementsPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? 'Edit Aptitude Test' : 'Create Aptitude Test Requirement'}
-        maxWidth="lg"
+        title={editingId ? 'Edit Aptitude Test Course' : 'Add Aptitude Test Course'}
+        maxWidth="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-              Course *
-            </label>
-            <select
-              value={formData.courseId || ''}
-              onChange={(e) => {
-                const c = courses.find((x) => x.id === e.target.value);
-                setFormData({
-                  ...formData,
-                  courseId: e.target.value,
-                  courseName: c ? c.name : formData.courseName,
-                });
-              }}
-              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100"
-            >
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} - {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-              Test Name *
+              Course of Study *
             </label>
             <input
               type="text"
               required
-              value={formData.testName || ''}
-              onChange={(e) => setFormData({ ...formData, testName: e.target.value })}
-              placeholder="e.g. Aptitude Test for Architecture"
-              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100"
+              value={formData.courseOfStudy || ''}
+              onChange={(e) => setFormData({ ...formData, courseOfStudy: e.target.value })}
+              placeholder="e.g. ARCHITECTURE, DESIGN, ARTS (SP) - MASS MEDIA"
+              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                Conducted By
-              </label>
-              <input
-                type="text"
-                value={formData.conductedBy || ''}
-                onChange={(e) => setFormData({ ...formData, conductedBy: e.target.value })}
-                placeholder="e.g. University of Moratuwa"
-                className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                Passing Criteria
-              </label>
-              <input
-                type="text"
-                value={formData.passingCriteria || ''}
-                onChange={(e) => setFormData({ ...formData, passingCriteria: e.target.value })}
-                placeholder="e.g. Minimum 50% Marks"
-                className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
-              />
-            </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-              Application Deadline / Instructions
+              University / Campus / Institute *
             </label>
             <input
               type="text"
-              value={formData.applicationDeadline || ''}
-              onChange={(e) => setFormData({ ...formData, applicationDeadline: e.target.value })}
-              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
+              required
+              value={formData.universityName || ''}
+              onChange={(e) => setFormData({ ...formData, universityName: e.target.value })}
+              placeholder="e.g. UNIVERSITY OF MORATUWA, SRIPALEE CAMPUS"
+              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-zinc-800">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+              Uni-Code *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.uniCode || ''}
+              onChange={(e) => setFormData({ ...formData, uniCode: e.target.value.toUpperCase() })}
+              placeholder="e.g. 020S, 023G, 068C"
+              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-zinc-800">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 text-xs font-medium text-gray-700 dark:text-zinc-300 hover:bg-gray-100 rounded-lg"
+              className="px-4 py-2 text-xs font-medium text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+              className="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-xs"
             >
-              Save Aptitude Test
+              {editingId ? 'Update Course' : 'Create Course'}
             </button>
           </div>
         </form>

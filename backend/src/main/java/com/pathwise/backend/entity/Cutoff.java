@@ -122,3 +122,4 @@ public class Cutoff {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

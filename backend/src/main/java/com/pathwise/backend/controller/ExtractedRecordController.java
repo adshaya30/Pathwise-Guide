@@ -67,3 +67,4 @@ public class ExtractedRecordController {
         return ResponseEntity.ok(rejected);
     }
 }
+

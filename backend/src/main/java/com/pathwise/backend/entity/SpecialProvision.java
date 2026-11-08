@@ -24,13 +24,31 @@ public class SpecialProvision {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
-    private String category; // DIFFERENTLY_ABLED, BLIND_BRAILLE, SPORTS, EXCEPTIONAL
+    @Column(name = "university_name")
+    private String universityName;
 
-    @Column(nullable = false)
+    @Column(name = "course_of_study")
+    private String courseOfStudy;
+
+    @Column(name = "uni_code")
+    private String uniCode;
+
+    @Column(name = "differently_abled")
+    @Builder.Default
+    private Integer differentlyAbled = 0;
+
+    @Column(name = "blind_braille")
+    @Builder.Default
+    private Integer blindBraille = 0;
+
+    @Column
+    @Builder.Default
+    private String category = "BLIND_AND_DIFFERENTLY_ABLED";
+
+    @Column
     private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -52,3 +70,4 @@ public class SpecialProvision {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

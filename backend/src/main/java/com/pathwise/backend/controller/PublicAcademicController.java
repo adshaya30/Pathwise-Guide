@@ -69,3 +69,4 @@ public class PublicAcademicController {
         return ResponseEntity.ok(universityService.getAllUniversities());
     }
 }
+

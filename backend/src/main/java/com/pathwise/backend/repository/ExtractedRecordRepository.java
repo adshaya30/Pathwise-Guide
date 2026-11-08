@@ -16,3 +16,4 @@ public interface ExtractedRecordRepository extends JpaRepository<ExtractedRecord
     List<ExtractedRecord> findByDocumentIdOrderByPageNumberAsc(UUID documentId);
     long countByStatus(String status);
 }
+

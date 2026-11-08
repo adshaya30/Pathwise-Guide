@@ -14,3 +14,4 @@ public interface ExtractionJobRepository extends JpaRepository<ExtractionJob, UU
     Optional<ExtractionJob> findTopByDocumentIdOrderByCreatedAtDesc(UUID documentId);
     long countByStatus(String status);
 }
+

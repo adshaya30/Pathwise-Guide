@@ -15,3 +15,4 @@ public interface DistrictRepository extends JpaRepository<District, UUID> {
     List<District> findAllByOrderByNameAsc();
     List<District> findByHasDisadvantageTrue();
 }
+

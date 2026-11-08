@@ -18,3 +18,4 @@ public class ExtractionProgressDto {
     private Integer totalItemsExtracted;
     private String errorMessage;
 }
+

@@ -38,3 +38,4 @@ public class Subject {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

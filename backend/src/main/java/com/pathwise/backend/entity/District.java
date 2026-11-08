@@ -42,3 +42,4 @@ public class District {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

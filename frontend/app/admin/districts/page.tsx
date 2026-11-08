@@ -67,10 +67,14 @@ export default function DistrictsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        code: formData.code || formData.name?.toUpperCase().replace(/[^A-Z0-9]/g, '_') || 'DISTRICT',
+      };
       if (editingId) {
-        await updateDistrict(editingId, formData);
+        await updateDistrict(editingId, payload);
       } else {
-        await createDistrict(formData);
+        await createDistrict(payload);
       }
       setIsModalOpen(false);
       loadDistricts();
@@ -82,7 +86,7 @@ export default function DistrictsPage() {
   const filtered = districts.filter((d) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    return d.name.toLowerCase().includes(q) || d.code.toLowerCase().includes(q) || d.province.toLowerCase().includes(q);
+    return d.name.toLowerCase().includes(q) || d.province.toLowerCase().includes(q);
   });
 
   return (
@@ -97,7 +101,7 @@ export default function DistrictsPage() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by district name, code or province..."
+          placeholder="Search by district name or province..."
           className="px-3.5 py-2 text-xs bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-lg w-80 text-gray-900 dark:text-zinc-100 shadow-xs"
         />
 
@@ -114,7 +118,6 @@ export default function DistrictsPage() {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-gray-50/75 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase">
-                <th className="px-4 py-3.5">Code</th>
                 <th className="px-4 py-3.5">District Name</th>
                 <th className="px-4 py-3.5">Province</th>
                 <th className="px-4 py-3.5">Disadvantaged Quota Status</th>
@@ -124,22 +127,19 @@ export default function DistrictsPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-900">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     Loading districts...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
                     No districts found.
                   </td>
                 </tr>
               ) : (
                 filtered.map((d) => (
                   <tr key={d.id} className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60">
-                    <td className="px-4 py-3.5 font-bold font-mono text-indigo-700 dark:text-indigo-400">
-                      {d.code}
-                    </td>
                     <td className="px-4 py-3.5 font-semibold text-gray-900 dark:text-zinc-100">
                       {d.name}
                     </td>
@@ -148,12 +148,12 @@ export default function DistrictsPage() {
                     </td>
                     <td className="px-4 py-3.5">
                       {d.hasDisadvantage ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                          Educationally Disadvantaged
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                          Yes
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-600 border border-gray-200">
-                          Standard District
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                          No
                         </span>
                       )}
                     </td>
@@ -271,3 +271,4 @@ export default function DistrictsPage() {
     </div>
   );
 }
+

@@ -289,11 +289,27 @@ public class ReviewAndPublishService {
     }
 
     private String publishSpecialProvision(JsonNode p) {
-        String cat = p.path("category").asText("EXCEPTIONAL");
-        String title = p.path("title").asText("Special Provision");
-        String description = p.path("description").asText("Description");
+        String uniName = p.has("universityName") ? p.get("universityName").asText() :
+                p.has("university") ? p.get("university").asText() : "University of Colombo";
+        String courseOfStudy = p.has("courseOfStudy") ? p.get("courseOfStudy").asText() :
+                p.has("courseName") ? p.get("courseName").asText() : "Arts";
+        String uniCode = p.has("uniCode") ? p.get("uniCode").asText() :
+                p.has("code") ? p.get("code").asText() : "";
+        int differentlyAbled = p.has("differentlyAbled") ? p.get("differentlyAbled").asInt() :
+                p.has("differently_abled") ? p.get("differently_abled").asInt() : 0;
+        int blindBraille = p.has("blindBraille") ? p.get("blindBraille").asInt() :
+                p.has("blind_braille") ? p.get("blind_braille").asInt() : 0;
+
+        String cat = p.path("category").asText("BLIND_AND_DIFFERENTLY_ABLED");
+        String title = p.path("title").asText(courseOfStudy + " - " + uniName);
+        String description = p.path("description").asText("Special Provision for " + courseOfStudy + " (" + uniCode + ")");
 
         SpecialProvision sp = SpecialProvision.builder()
+                .universityName(uniName)
+                .courseOfStudy(courseOfStudy)
+                .uniCode(uniCode)
+                .differentlyAbled(differentlyAbled)
+                .blindBraille(blindBraille)
                 .category(cat)
                 .title(title)
                 .description(description)
@@ -306,20 +322,27 @@ public class ReviewAndPublishService {
     }
 
     private String publishAptitude(JsonNode p) {
-        String courseName = p.path("courseName").asText("Course");
-        String testName = p.path("testName").asText("Aptitude Test");
+        String courseOfStudy = p.has("courseOfStudy") ? p.get("courseOfStudy").asText() :
+                p.has("courseName") ? p.get("courseName").asText() : "Course of Study";
+        String uniName = p.has("universityName") ? p.get("universityName").asText() :
+                p.has("university") ? p.get("university").asText() : "Respective University";
+        String uniCode = p.has("uniCode") ? p.get("uniCode").asText() :
+                p.has("code") ? p.get("code").asText() : "";
+        String testName = p.path("testName").asText("Practical / Aptitude Test");
 
-        Course course = courseRepository.findByNameIgnoreCase(courseName).orElseGet(() ->
-                courseRepository.save(Course.builder().code(UUID.randomUUID().toString().substring(0, 4)).name(courseName).build()));
+        Course course = courseRepository.findByNameIgnoreCase(courseOfStudy).orElse(null);
 
         AptitudeRequirement req = AptitudeRequirement.builder()
-                .courseId(course.getId())
-                .courseName(course.getName())
+                .courseId(course != null ? course.getId() : null)
+                .courseName(courseOfStudy)
+                .courseOfStudy(courseOfStudy)
+                .universityName(uniName)
+                .uniCode(uniCode)
                 .testName(testName)
                 .testDescription(p.path("testDescription").asText(null))
-                .passingCriteria(p.path("passingCriteria").asText(null))
+                .passingCriteria(p.path("passingCriteria").asText("Pass in practical/aptitude test"))
                 .applicationDeadline(p.path("applicationDeadline").asText(null))
-                .conductedBy(p.path("conductedBy").asText(null))
+                .conductedBy(p.path("conductedBy").asText(uniName))
                 .build();
 
         AptitudeRequirement saved = aptitudeRequirementRepository.save(req);
@@ -336,3 +359,4 @@ public class ReviewAndPublishService {
         return stream.getId().toString();
     }
 }
+

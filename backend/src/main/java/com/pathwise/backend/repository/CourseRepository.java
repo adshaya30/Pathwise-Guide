@@ -15,3 +15,4 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     List<Course> findByIsActiveTrue();
     List<Course> findByStreamId(UUID streamId);
 }
+

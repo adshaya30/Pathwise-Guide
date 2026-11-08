@@ -13,3 +13,4 @@ public interface ArtsBasketSubjectRepository extends JpaRepository<ArtsBasketSub
     List<ArtsBasketSubject> findByBasketId(UUID basketId);
     Optional<ArtsBasketSubject> findByBasketIdAndSubjectId(UUID basketId, UUID subjectId);
 }
+

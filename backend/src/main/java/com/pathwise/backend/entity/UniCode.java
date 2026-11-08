@@ -47,3 +47,4 @@ public class UniCode {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

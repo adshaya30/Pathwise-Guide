@@ -24,3 +24,4 @@ public class DashboardStatsDto {
     private long totalDistricts;
     private List<Document> recentDocuments;
 }
+

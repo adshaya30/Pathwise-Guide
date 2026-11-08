@@ -12,3 +12,4 @@ public class RecordReviewRequest {
     private String validationNotes;
     private String rawPayload; // optional edited payload before approving
 }
+

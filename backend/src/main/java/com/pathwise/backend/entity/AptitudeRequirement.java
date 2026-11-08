@@ -21,11 +21,14 @@ public class AptitudeRequirement {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "course_id", nullable = false)
+    @Column(name = "course_id")
     private UUID courseId;
 
-    @Column(name = "course_name", nullable = false)
+    @Column(name = "course_name")
     private String courseName;
+
+    @Column(name = "course_of_study")
+    private String courseOfStudy;
 
     @Column(name = "university_id")
     private UUID universityId;
@@ -33,7 +36,10 @@ public class AptitudeRequirement {
     @Column(name = "university_name")
     private String universityName;
 
-    @Column(name = "test_name", nullable = false)
+    @Column(name = "uni_code")
+    private String uniCode;
+
+    @Column(name = "test_name")
     private String testName;
 
     @Column(name = "test_description", columnDefinition = "TEXT")
@@ -48,6 +54,13 @@ public class AptitudeRequirement {
     @Column(name = "conducted_by")
     private String conductedBy;
 
+    public String getCourseOfStudy() {
+        if (courseOfStudy != null && !courseOfStudy.isBlank()) {
+            return courseOfStudy;
+        }
+        return courseName;
+    }
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
@@ -56,3 +69,4 @@ public class AptitudeRequirement {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

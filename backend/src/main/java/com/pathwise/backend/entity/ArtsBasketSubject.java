@@ -38,3 +38,4 @@ public class ArtsBasketSubject {
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 }
+

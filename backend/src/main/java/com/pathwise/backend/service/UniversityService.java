@@ -43,3 +43,4 @@ public class UniversityService {
         universityRepository.deleteById(id);
     }
 }
+

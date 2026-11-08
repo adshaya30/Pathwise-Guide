@@ -379,3 +379,4 @@ export async function updateUniversity(id: string, uni: Partial<University>): Pr
 export async function deleteUniversity(id: string): Promise<void> {
   await fetch(`${API_BASE}/admin/universities/${id}`, { method: 'DELETE' });
 }
+

@@ -38,3 +38,4 @@ public class University {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

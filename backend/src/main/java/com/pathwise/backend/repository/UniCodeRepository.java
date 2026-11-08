@@ -15,3 +15,4 @@ public interface UniCodeRepository extends JpaRepository<UniCode, UUID> {
     List<UniCode> findByUniversityId(UUID universityId);
     List<UniCode> findAllByOrderByCodeAsc();
 }
+

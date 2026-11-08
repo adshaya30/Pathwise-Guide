@@ -15,3 +15,4 @@ public interface CutoffRepository extends JpaRepository<Cutoff, UUID> {
     Optional<Cutoff> findByUniCodeIdAndAcademicYear(UUID uniCodeId, String academicYear);
     List<Cutoff> findAllByOrderByAcademicYearDescUniCodeAsc();
 }
+

@@ -43,3 +43,4 @@ public class AdminUniversityController {
         return ResponseEntity.noContent().build();
     }
 }
+

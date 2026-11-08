@@ -13,3 +13,4 @@ public interface AptitudeRequirementRepository extends JpaRepository<AptitudeReq
     List<AptitudeRequirement> findByUniversityId(UUID universityId);
     List<AptitudeRequirement> findAllByOrderByCourseNameAsc();
 }
+

@@ -13,3 +13,4 @@ public interface StreamSubjectRepository extends JpaRepository<StreamSubject, UU
     List<StreamSubject> findByStreamId(UUID streamId);
     Optional<StreamSubject> findByStreamIdAndSubjectId(UUID streamId, UUID subjectId);
 }
+

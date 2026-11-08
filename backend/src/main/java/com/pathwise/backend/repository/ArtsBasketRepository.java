@@ -13,3 +13,4 @@ public interface ArtsBasketRepository extends JpaRepository<ArtsBasket, UUID> {
     List<ArtsBasket> findAllByOrderByBasketNumberAsc();
     Optional<ArtsBasket> findByBasketNumber(Integer basketNumber);
 }
+

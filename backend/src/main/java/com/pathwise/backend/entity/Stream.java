@@ -38,3 +38,4 @@ public class Stream {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

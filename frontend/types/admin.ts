@@ -183,9 +183,14 @@ export interface District {
 
 export interface SpecialProvision {
   id: string;
-  category: 'DIFFERENTLY_ABLED' | 'BLIND_BRAILLE' | 'SPORTS' | 'EXCEPTIONAL' | string;
-  title: string;
-  description: string;
+  universityName: string;
+  courseOfStudy: string;
+  uniCode: string;
+  differentlyAbled?: number | null;
+  blindBraille?: number | null;
+  category?: 'DIFFERENTLY_ABLED' | 'BLIND_BRAILLE' | 'SPORTS' | 'EXCEPTIONAL' | string;
+  title?: string;
+  description?: string;
   eligibleCourses?: string;
   quotaPercentage?: number;
   conditions?: string;
@@ -231,11 +236,13 @@ export interface Cutoff {
 
 export interface AptitudeRequirement {
   id: string;
-  courseId: string;
+  courseOfStudy?: string;
   courseName: string;
+  universityName: string;
+  uniCode: string;
+  courseId?: string;
   universityId?: string;
-  universityName?: string;
-  testName: string;
+  testName?: string;
   testDescription?: string;
   passingCriteria?: string;
   applicationDeadline?: string;

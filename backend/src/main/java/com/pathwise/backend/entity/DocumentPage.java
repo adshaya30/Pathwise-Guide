@@ -57,3 +57,4 @@ public class DocumentPage {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

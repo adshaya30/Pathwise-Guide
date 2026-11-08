@@ -60,3 +60,4 @@ public class AdminStreamController {
         return ResponseEntity.ok(streamService.getSubjectsForStream(id));
     }
 }
+

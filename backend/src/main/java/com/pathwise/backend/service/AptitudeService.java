@@ -30,13 +30,28 @@ public class AptitudeService {
 
     @Transactional
     public AptitudeRequirement createAptitude(AptitudeRequirement req) {
+        if (req.getCourseOfStudy() != null && (req.getCourseName() == null || req.getCourseName().isBlank())) {
+            req.setCourseName(req.getCourseOfStudy());
+        }
+        if (req.getCourseName() != null && (req.getCourseOfStudy() == null || req.getCourseOfStudy().isBlank())) {
+            req.setCourseOfStudy(req.getCourseName());
+        }
         if (req.getCourseId() != null) {
             courseRepository.findById(req.getCourseId())
-                    .ifPresent(c -> req.setCourseName(c.getName()));
+                    .ifPresent(c -> {
+                        req.setCourseName(c.getName());
+                        if (req.getCourseOfStudy() == null) req.setCourseOfStudy(c.getName());
+                    });
         }
         if (req.getUniversityId() != null) {
             universityRepository.findById(req.getUniversityId())
                     .ifPresent(u -> req.setUniversityName(u.getName()));
+        }
+        if (req.getTestName() == null || req.getTestName().isBlank()) {
+            req.setTestName("Practical / Aptitude Test");
+        }
+        if (req.getConductedBy() == null || req.getConductedBy().isBlank()) {
+            req.setConductedBy(req.getUniversityName());
         }
         return aptitudeRequirementRepository.save(req);
     }
@@ -45,18 +60,24 @@ public class AptitudeService {
     public AptitudeRequirement updateAptitude(UUID id, AptitudeRequirement updated) {
         AptitudeRequirement existing = getAptitudeById(id);
         existing.setCourseId(updated.getCourseId());
-        existing.setCourseName(updated.getCourseName());
+        String courseName = updated.getCourseOfStudy() != null ? updated.getCourseOfStudy() : updated.getCourseName();
+        existing.setCourseName(courseName);
+        existing.setCourseOfStudy(courseName);
         existing.setUniversityId(updated.getUniversityId());
         existing.setUniversityName(updated.getUniversityName());
-        existing.setTestName(updated.getTestName());
-        existing.setTestDescription(updated.getTestDescription());
-        existing.setPassingCriteria(updated.getPassingCriteria());
-        existing.setApplicationDeadline(updated.getApplicationDeadline());
-        existing.setConductedBy(updated.getConductedBy());
+        existing.setUniCode(updated.getUniCode());
+        if (updated.getTestName() != null) existing.setTestName(updated.getTestName());
+        if (updated.getTestDescription() != null) existing.setTestDescription(updated.getTestDescription());
+        if (updated.getPassingCriteria() != null) existing.setPassingCriteria(updated.getPassingCriteria());
+        if (updated.getApplicationDeadline() != null) existing.setApplicationDeadline(updated.getApplicationDeadline());
+        if (updated.getConductedBy() != null) existing.setConductedBy(updated.getConductedBy());
 
         if (existing.getCourseId() != null) {
             courseRepository.findById(existing.getCourseId())
-                    .ifPresent(c -> existing.setCourseName(c.getName()));
+                    .ifPresent(c -> {
+                        existing.setCourseName(c.getName());
+                        existing.setCourseOfStudy(c.getName());
+                    });
         }
         if (existing.getUniversityId() != null) {
             universityRepository.findById(existing.getUniversityId())
@@ -71,3 +92,4 @@ public class AptitudeService {
         aptitudeRequirementRepository.deleteById(id);
     }
 }
+

@@ -43,3 +43,4 @@ public class AdminAptitudeController {
         return ResponseEntity.noContent().build();
     }
 }
+

@@ -12,3 +12,4 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
     List<Document> findAllByOrderByCreatedAtDesc();
     long countByStatus(String status);
 }
+

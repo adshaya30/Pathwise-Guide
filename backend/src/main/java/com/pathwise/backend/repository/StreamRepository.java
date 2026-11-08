@@ -12,3 +12,4 @@ public interface StreamRepository extends JpaRepository<Stream, UUID> {
     Optional<Stream> findByCode(String code);
     Optional<Stream> findByNameIgnoreCase(String name);
 }
+

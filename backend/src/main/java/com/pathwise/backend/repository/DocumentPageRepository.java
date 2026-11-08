@@ -13,3 +13,4 @@ public interface DocumentPageRepository extends JpaRepository<DocumentPage, UUID
     List<DocumentPage> findByDocumentIdOrderByPageNumberAsc(UUID documentId);
     Optional<DocumentPage> findByDocumentIdAndPageNumber(UUID documentId, Integer pageNumber);
 }
+

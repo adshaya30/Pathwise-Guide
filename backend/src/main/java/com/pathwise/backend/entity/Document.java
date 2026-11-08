@@ -62,3 +62,4 @@ public class Document {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

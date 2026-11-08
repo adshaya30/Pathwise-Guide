@@ -12,3 +12,4 @@ public interface SubjectRepository extends JpaRepository<Subject, UUID> {
     Optional<Subject> findByCode(String code);
     Optional<Subject> findByNameIgnoreCase(String name);
 }
+

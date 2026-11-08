@@ -11,3 +11,4 @@ public class RecordRejectRequest {
     private String reviewedBy;
     private String rejectionReason;
 }
+

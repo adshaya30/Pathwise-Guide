@@ -56,3 +56,4 @@ public class ExtractionJob {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
+

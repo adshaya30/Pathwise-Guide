@@ -63,3 +63,4 @@ public class ArtsBasketService {
         artsBasketSubjectRepository.deleteById(subjectLinkId);
     }
 }
+

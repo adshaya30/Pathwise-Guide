@@ -18,3 +18,4 @@ public class DocumentUploadResponse {
     private String status;
     private String message;
 }
+
