@@ -1,0 +1,60 @@
+name: Spring Boot CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pathwise
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Give Maven wrapper permission
+        run: chmod +x mvnw
+
+      - name: Build and run tests
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/pathwise
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres_password
+        run: ./mvnw clean verify
+
+      - name: Upload JAR artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spring-boot-application
+          path: backend/target/*.jar
+          if-no-files-found: error

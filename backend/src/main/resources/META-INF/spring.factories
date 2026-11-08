@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=com.pathwise.backend.config.DotenvEnvironmentPostProcessor
+org.springframework.boot.EnvironmentPostProcessor=com.pathwise.backend.config.DotenvEnvironmentPostProcessor
