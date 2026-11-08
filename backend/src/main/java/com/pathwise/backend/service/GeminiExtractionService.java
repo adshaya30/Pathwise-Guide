@@ -114,9 +114,9 @@ public class GeminiExtractionService {
                 - UNI_CODE: University course codes (e.g. 001A Colombo Medicine, 024C Moratuwa Computer Science & Engineering).
                 - COURSE: Course specifications, duration, intake capacities across universities, degree title, A/L requirements.
                 - DISTRICT: 25 Sri Lankan administrative districts and disadvantage status.
-                - SPECIAL_PROVISION: Differently-abled, blind/braille, sports, exceptional admissions provisions.
+                - SPECIAL_PROVISION: UGC Section 6.1 Blind and Differently Abled Candidates allocations per University, Course of Study, and Uni-Code.
                 - CUTOFF: Minimum Z-score cutoffs table with district values.
-                - APTITUDE: Courses requiring aptitude tests, conducting universities, dates, formats.
+                - APTITUDE: Courses requiring practical / aptitude test, listing Course of Study, University / Campus / Institute, and Uni-Code.
                 - STREAM_SUBJECT: A/L stream subject combinations.
                 - GENERAL: Forewords, index, general instructions.
                 
@@ -125,7 +125,12 @@ public class GeminiExtractionService {
                   "pageType": "CUTOFF" | "COURSE" | "UNI_CODE" | "ARTS_BASKET" | "DISTRICT" | "SPECIAL_PROVISION" | "APTITUDE" | "STREAM_SUBJECT" | "GENERAL",
                   "confidence": 0.95,
                   "items": [
-                     // List of extracted items matching the module schema
+                     // If SPECIAL_PROVISION:
+                     // { "universityName": "...", "courseOfStudy": "...", "uniCode": "...", "differentlyAbled": 12, "blindBraille": 8 }
+                     // If APTITUDE:
+                     // { "courseOfStudy": "...", "universityName": "...", "uniCode": "..." }
+                     // If CUTOFF:
+                     // { "uniCode": "...", "courseName": "...", "universityName": "...", "colombo": 1.95, ... }
                   ]
                 }
                 
@@ -244,30 +249,40 @@ public class GeminiExtractionService {
 
     private List<Map<String, Object>> extractAptitudeRecords(String text) {
         List<Map<String, Object>> list = new ArrayList<>();
-        Pattern p = Pattern.compile("(?i)(course|study|programme)[:\\s]+([A-Za-z &\\-/]+?)[\\n\\r]+.*?(test|examination)[:\\s]+([A-Za-z &\\-/]+)");
+        Pattern p = Pattern.compile("(?m)^\\s*([A-Za-z &\\-/()]+?)\\s{2,}([A-Za-z0-9 ,&\\-/()]+?)\\s{2,}(\\d{3}[A-Z]?)\\s*$");
         Matcher m = p.matcher(text);
         while (m.find()) {
             Map<String, Object> item = new HashMap<>();
-            item.put("courseName", m.group(2).trim());
-            item.put("testName", m.group(4).trim());
-            item.put("conductedBy", "Respective University");
-            item.put("passingCriteria", "Minimum 50% marks in practical test");
+            item.put("courseOfStudy", m.group(1).trim().toUpperCase());
+            item.put("universityName", m.group(2).trim().toUpperCase());
+            item.put("uniCode", m.group(3).trim().toUpperCase());
             list.add(item);
+        }
+        if (list.isEmpty()) {
+            Pattern p2 = Pattern.compile("(?i)(course|study)[:\\s]+([A-Za-z &\\-/()]+?)[\\n\\r]+.*?(university|campus)[:\\s]+([A-Za-z &\\-/()]+?)[\\n\\r]+.*?(code)[:\\s]+(\\d{3}[A-Z]?)");
+            Matcher m2 = p2.matcher(text);
+            while (m2.find()) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("courseOfStudy", m2.group(2).trim().toUpperCase());
+                item.put("universityName", m2.group(4).trim().toUpperCase());
+                item.put("uniCode", m2.group(6).trim().toUpperCase());
+                list.add(item);
+            }
         }
         return list;
     }
 
     private List<Map<String, Object>> extractSpecialProvisionRecords(String text) {
         List<Map<String, Object>> list = new ArrayList<>();
-        Pattern p = Pattern.compile("(?i)(differently abled|blind|braille|sports|exceptional)[:\\-\\s]+([^\\.\\n]+)");
+        Pattern p = Pattern.compile("(?m)^\\s*([A-Za-z0-9 ,&\\-/()]+?)\\s{2,}([A-Za-z &\\-/()]+?)\\s{2,}(\\d{3}[A-Z]?)\\s+(\\d+|-)\\s+(\\d+|-)\\s*$");
         Matcher m = p.matcher(text);
         while (m.find()) {
             Map<String, Object> item = new HashMap<>();
-            String cat = m.group(1).toUpperCase().replace(" ", "_");
-            item.put("category", cat.contains("BLIND") ? "BLIND_BRAILLE" : (cat.contains("ABLED") ? "DIFFERENTLY_ABLED" : cat));
-            item.put("title", m.group(1).trim());
-            item.put("description", m.group(2).trim());
-            item.put("quotaPercentage", 3.0);
+            item.put("universityName", m.group(1).trim());
+            item.put("courseOfStudy", m.group(2).trim());
+            item.put("uniCode", m.group(3).trim().toUpperCase());
+            item.put("differentlyAbled", m.group(4).equals("-") ? 0 : Integer.parseInt(m.group(4)));
+            item.put("blindBraille", m.group(5).equals("-") ? 0 : Integer.parseInt(m.group(5)));
             list.add(item);
         }
         return list;
