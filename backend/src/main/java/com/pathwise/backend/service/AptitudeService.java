@@ -47,9 +47,6 @@ public class AptitudeService {
             universityRepository.findById(req.getUniversityId())
                     .ifPresent(u -> req.setUniversityName(u.getName()));
         }
-        if (req.getTestName() == null || req.getTestName().isBlank()) {
-            req.setTestName("Practical / Aptitude Test");
-        }
         if (req.getConductedBy() == null || req.getConductedBy().isBlank()) {
             req.setConductedBy(req.getUniversityName());
         }
@@ -66,10 +63,6 @@ public class AptitudeService {
         existing.setUniversityId(updated.getUniversityId());
         existing.setUniversityName(updated.getUniversityName());
         existing.setUniCode(updated.getUniCode());
-        if (updated.getTestName() != null) existing.setTestName(updated.getTestName());
-        if (updated.getTestDescription() != null) existing.setTestDescription(updated.getTestDescription());
-        if (updated.getPassingCriteria() != null) existing.setPassingCriteria(updated.getPassingCriteria());
-        if (updated.getApplicationDeadline() != null) existing.setApplicationDeadline(updated.getApplicationDeadline());
         if (updated.getConductedBy() != null) existing.setConductedBy(updated.getConductedBy());
 
         if (existing.getCourseId() != null) {

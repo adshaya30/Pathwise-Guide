@@ -289,6 +289,17 @@ export async function createSpecialProvision(sp: Partial<SpecialProvision>): Pro
   });
 }
 
+export async function batchCreateSpecialProvisions(list: Partial<SpecialProvision>[]): Promise<SpecialProvision[]> {
+  return fetchJson<SpecialProvision[]>('/admin/special-provisions/batch', {
+    method: 'POST',
+    body: JSON.stringify(list),
+  });
+}
+
+export async function getPublicSpecialProvisions(): Promise<SpecialProvision[]> {
+  return fetchJson<SpecialProvision[]>('/academic/provisions');
+}
+
 export async function updateSpecialProvision(id: string, sp: Partial<SpecialProvision>): Promise<SpecialProvision> {
   return fetchJson<SpecialProvision>(`/admin/special-provisions/${id}`, {
     method: 'PUT',

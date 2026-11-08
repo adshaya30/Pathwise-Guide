@@ -243,10 +243,6 @@ CREATE TABLE IF NOT EXISTS aptitude_requirements (
     university_id UUID REFERENCES universities(id) ON DELETE SET NULL,
     university_name VARCHAR(255),
     uni_code VARCHAR(50) DEFAULT '',
-    test_name VARCHAR(255),
-    test_description TEXT,
-    passing_criteria TEXT,
-    application_deadline VARCHAR(100),
     conducted_by VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -255,7 +251,10 @@ CREATE TABLE IF NOT EXISTS aptitude_requirements (
 ALTER TABLE aptitude_requirements ADD COLUMN IF NOT EXISTS uni_code VARCHAR(50) DEFAULT '';
 ALTER TABLE aptitude_requirements ADD COLUMN IF NOT EXISTS course_of_study VARCHAR(255);
 ALTER TABLE aptitude_requirements ALTER COLUMN course_id DROP NOT NULL;
-ALTER TABLE aptitude_requirements ALTER COLUMN test_name DROP NOT NULL;
+ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS test_name;
+ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS test_description;
+ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS passing_criteria;
+ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS application_deadline;
 
 -- Seed base 25 Sri Lankan Districts
 INSERT INTO districts (code, name, province, has_disadvantage) VALUES

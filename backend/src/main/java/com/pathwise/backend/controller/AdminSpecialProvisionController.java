@@ -32,6 +32,11 @@ public class AdminSpecialProvisionController {
         return ResponseEntity.ok(specialProvisionService.createProvision(sp));
     }
 
+    @PostMapping("/batch")
+    public ResponseEntity<List<SpecialProvision>> batchCreateProvisions(@RequestBody List<SpecialProvision> list) {
+        return ResponseEntity.ok(specialProvisionService.batchCreateOrUpdate(list));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<SpecialProvision> updateProvision(@PathVariable UUID id, @RequestBody SpecialProvision sp) {
         return ResponseEntity.ok(specialProvisionService.updateProvision(id, sp));

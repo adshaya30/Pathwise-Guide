@@ -114,7 +114,7 @@ public class GeminiExtractionService {
                 - UNI_CODE: University course codes (e.g. 001A Colombo Medicine, 024C Moratuwa Computer Science & Engineering).
                 - COURSE: Course specifications, duration, intake capacities across universities, degree title, A/L requirements.
                 - DISTRICT: 25 Sri Lankan administrative districts and disadvantage status.
-                - SPECIAL_PROVISION: UGC Section 6.1 Blind and Differently Abled Candidates allocations per University, Course of Study, and Uni-Code.
+                - SPECIAL_PROVISION: UGC Section 6.1 Admission of Students Under Special Provisions: Blind and Differently Abled Candidates. Table columns: University, Course of Study, Uni-Codes, No of Students (Differently abled, Blind (Braille)).
                 - CUTOFF: Minimum Z-score cutoffs table with district values.
                 - APTITUDE: Courses requiring practical / aptitude test, listing Course of Study, University / Campus / Institute, and Uni-Code.
                 - STREAM_SUBJECT: A/L stream subject combinations.
@@ -125,8 +125,10 @@ public class GeminiExtractionService {
                   "pageType": "CUTOFF" | "COURSE" | "UNI_CODE" | "ARTS_BASKET" | "DISTRICT" | "SPECIAL_PROVISION" | "APTITUDE" | "STREAM_SUBJECT" | "GENERAL",
                   "confidence": 0.95,
                   "items": [
-                     // If SPECIAL_PROVISION:
-                     // { "universityName": "...", "courseOfStudy": "...", "uniCode": "...", "differentlyAbled": 12, "blindBraille": 8 }
+                     // If SPECIAL_PROVISION (UGC Section 6.1):
+                     // For each row in the table, extract:
+                     // { "universityName": "University of Colombo", "courseOfStudy": "Arts", "uniCode": "019A", "differentlyAbled": 12, "blindBraille": 8 }
+                     // Note: If seat count is "-" or absent, set to 0. If university is visually grouped across rows, retain the universityName.
                      // If APTITUDE:
                      // { "courseOfStudy": "...", "universityName": "...", "uniCode": "..." }
                      // If CUTOFF:
@@ -274,18 +276,122 @@ public class GeminiExtractionService {
 
     private List<Map<String, Object>> extractSpecialProvisionRecords(String text) {
         List<Map<String, Object>> list = new ArrayList<>();
-        Pattern p = Pattern.compile("(?m)^\\s*([A-Za-z0-9 ,&\\-/()]+?)\\s{2,}([A-Za-z &\\-/()]+?)\\s{2,}(\\d{3}[A-Z]?)\\s+(\\d+|-)\\s+(\\d+|-)\\s*$");
-        Matcher m = p.matcher(text);
-        while (m.find()) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("universityName", m.group(1).trim());
-            item.put("courseOfStudy", m.group(2).trim());
-            item.put("uniCode", m.group(3).trim().toUpperCase());
-            item.put("differentlyAbled", m.group(4).equals("-") ? 0 : Integer.parseInt(m.group(4)));
-            item.put("blindBraille", m.group(5).equals("-") ? 0 : Integer.parseInt(m.group(5)));
-            list.add(item);
+        if (text == null || text.isBlank()) {
+            return list;
         }
+
+        String[] lines = text.split("\\r?\\n");
+        String currentUniversity = "";
+
+        // Known Sri Lankan universities for boundary matching in PDF-extracted lines
+        List<String> knownUnis = List.of(
+                "University of Sri Jayewardenepura",
+                "University of Colombo",
+                "University of Peradeniya",
+                "University of Kelaniya",
+                "University of Moratuwa",
+                "University of Jaffna",
+                "University of Ruhuna",
+                "Eastern University, Sri Lanka",
+                "Eastern University",
+                "South Eastern University of Sri Lanka",
+                "South Eastern University",
+                "Rajarata University of Sri Lanka",
+                "Rajarata University",
+                "Wayamba University of Sri Lanka",
+                "Wayamba University",
+                "Sabaragamuwa University of Sri Lanka",
+                "Sabaragamuwa University",
+                "Uva Wellassa University",
+                "University of the Visual & Performing Arts",
+                "University of the Visual and Performing Arts",
+                "Gampaha Wickramarachchi University",
+                "Open University of Sri Lanka"
+        );
+
+        Pattern rowPattern = Pattern.compile("^(.*?)\\b(\\d{3}[A-Z]?)\\s+([0-9]+|[-–—]+)\\s+([0-9]+|[-–—]+)\\s*$");
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isBlank()) continue;
+
+            String lower = trimmed.toLowerCase();
+            // Skip header lines
+            if (lower.contains("differently abled") || lower.contains("blind (braille)") || lower.contains("course of study")
+                    || lower.contains("uni-codes") || lower.contains("no of students") || lower.contains("special provisions")) {
+                continue;
+            }
+
+            Matcher m = rowPattern.matcher(trimmed);
+            if (m.find()) {
+                String prefix = m.group(1).trim();
+                String uniCode = m.group(2).trim().toUpperCase();
+                int differentlyAbled = parseSeatCount(m.group(3));
+                int blindBraille = parseSeatCount(m.group(4));
+
+                String uni = "";
+                String course = "";
+
+                // Check if prefix has multi-space or tab separation
+                String[] parts = prefix.split("\\t|\\s{2,}");
+                if (parts.length >= 2) {
+                    uni = parts[0].trim();
+                    course = parts[1].trim();
+                    currentUniversity = uni;
+                } else {
+                    // Try to match known university at start of prefix
+                    boolean matchedKnown = false;
+                    for (String ku : knownUnis) {
+                        if (prefix.toLowerCase().startsWith(ku.toLowerCase())) {
+                            uni = ku;
+                            course = prefix.substring(ku.length()).trim();
+                            currentUniversity = uni;
+                            matchedKnown = true;
+                            break;
+                        }
+                    }
+
+                    if (!matchedKnown) {
+                        if (!currentUniversity.isBlank()) {
+                            uni = currentUniversity;
+                            course = prefix;
+                        } else {
+                            uni = prefix;
+                            course = "Arts";
+                        }
+                    }
+                }
+
+                // Clean course and uni
+                course = course.replaceAll("^[\\-:,\\s]+", "").trim();
+                uni = uni.replaceAll("^[\\-:,\\s]+", "").trim();
+
+                if (!course.isBlank() || !uni.isBlank()) {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("universityName", uni);
+                    item.put("courseOfStudy", course);
+                    item.put("uniCode", uniCode);
+                    item.put("differentlyAbled", differentlyAbled);
+                    item.put("blindBraille", blindBraille);
+                    list.add(item);
+                }
+            }
+        }
+
         return list;
+    }
+
+    private int parseSeatCount(String s) {
+        if (s == null) return 0;
+        String cleaned = s.trim();
+        if (cleaned.equals("-") || cleaned.equals("–") || cleaned.equals("—") || cleaned.equalsIgnoreCase("nil") || cleaned.equalsIgnoreCase("none")) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(cleaned);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private List<Map<String, Object>> extractUniCodeRecords(String text) {

@@ -289,33 +289,52 @@ public class ReviewAndPublishService {
     }
 
     private String publishSpecialProvision(JsonNode p) {
-        String uniName = p.has("universityName") ? p.get("universityName").asText() :
-                p.has("university") ? p.get("university").asText() : "University of Colombo";
-        String courseOfStudy = p.has("courseOfStudy") ? p.get("courseOfStudy").asText() :
-                p.has("courseName") ? p.get("courseName").asText() : "Arts";
-        String uniCode = p.has("uniCode") ? p.get("uniCode").asText() :
-                p.has("code") ? p.get("code").asText() : "";
+        String uniName = p.hasNonNull("universityName") ? p.get("universityName").asText().trim() :
+                p.hasNonNull("university") ? p.get("university").asText().trim() : "";
+        String courseOfStudy = p.hasNonNull("courseOfStudy") ? p.get("courseOfStudy").asText().trim() :
+                p.hasNonNull("courseName") ? p.get("courseName").asText().trim() : "";
+        String uniCode = p.hasNonNull("uniCode") ? p.get("uniCode").asText().trim().toUpperCase() :
+                p.hasNonNull("code") ? p.get("code").asText().trim().toUpperCase() : "";
         int differentlyAbled = p.has("differentlyAbled") ? p.get("differentlyAbled").asInt() :
                 p.has("differently_abled") ? p.get("differently_abled").asInt() : 0;
         int blindBraille = p.has("blindBraille") ? p.get("blindBraille").asInt() :
                 p.has("blind_braille") ? p.get("blind_braille").asInt() : 0;
 
         String cat = p.path("category").asText("BLIND_AND_DIFFERENTLY_ABLED");
-        String title = p.path("title").asText(courseOfStudy + " - " + uniName);
-        String description = p.path("description").asText("Special Provision for " + courseOfStudy + " (" + uniCode + ")");
+        String title = p.path("title").asText(courseOfStudy + (!uniName.isBlank() ? " - " + uniName : ""));
+        String description = p.path("description").asText("Special Provision for " + courseOfStudy + (!uniCode.isBlank() ? " (" + uniCode + ")" : ""));
 
-        SpecialProvision sp = SpecialProvision.builder()
-                .universityName(uniName)
-                .courseOfStudy(courseOfStudy)
-                .uniCode(uniCode)
-                .differentlyAbled(differentlyAbled)
-                .blindBraille(blindBraille)
-                .category(cat)
-                .title(title)
-                .description(description)
-                .quotaPercentage(p.has("quotaPercentage") ? BigDecimal.valueOf(p.get("quotaPercentage").asDouble()) : null)
-                .conditions(p.path("conditions").asText(null))
-                .build();
+        // Check if record already exists by uniCode or (universityName, courseOfStudy, uniCode)
+        SpecialProvision sp = null;
+        if (!uniCode.isBlank()) {
+            sp = specialProvisionRepository.findByUniCode(uniCode).orElse(null);
+        }
+        if (sp == null && !uniName.isBlank() && !courseOfStudy.isBlank()) {
+            sp = specialProvisionRepository.findByUniversityNameAndCourseOfStudyAndUniCode(uniName, courseOfStudy, uniCode).orElse(null);
+        }
+
+        if (sp == null) {
+            sp = SpecialProvision.builder()
+                    .universityName(uniName)
+                    .courseOfStudy(courseOfStudy)
+                    .uniCode(uniCode)
+                    .differentlyAbled(differentlyAbled)
+                    .blindBraille(blindBraille)
+                    .category(cat)
+                    .title(title)
+                    .description(description)
+                    .quotaPercentage(p.has("quotaPercentage") ? BigDecimal.valueOf(p.get("quotaPercentage").asDouble()) : null)
+                    .conditions(p.path("conditions").asText(null))
+                    .build();
+        } else {
+            sp.setUniversityName(uniName);
+            sp.setCourseOfStudy(courseOfStudy);
+            sp.setDifferentlyAbled(differentlyAbled);
+            sp.setBlindBraille(blindBraille);
+            if (p.has("category")) sp.setCategory(cat);
+            if (p.has("title")) sp.setTitle(title);
+            if (p.has("description")) sp.setDescription(description);
+        }
 
         SpecialProvision saved = specialProvisionRepository.save(sp);
         return saved.getId().toString();
@@ -328,8 +347,6 @@ public class ReviewAndPublishService {
                 p.has("university") ? p.get("university").asText() : "Respective University";
         String uniCode = p.has("uniCode") ? p.get("uniCode").asText() :
                 p.has("code") ? p.get("code").asText() : "";
-        String testName = p.path("testName").asText("Practical / Aptitude Test");
-
         Course course = courseRepository.findByNameIgnoreCase(courseOfStudy).orElse(null);
 
         AptitudeRequirement req = AptitudeRequirement.builder()
@@ -338,10 +355,6 @@ public class ReviewAndPublishService {
                 .courseOfStudy(courseOfStudy)
                 .universityName(uniName)
                 .uniCode(uniCode)
-                .testName(testName)
-                .testDescription(p.path("testDescription").asText(null))
-                .passingCriteria(p.path("passingCriteria").asText("Pass in practical/aptitude test"))
-                .applicationDeadline(p.path("applicationDeadline").asText(null))
                 .conductedBy(p.path("conductedBy").asText(uniName))
                 .build();
 

@@ -39,18 +39,6 @@ public class AptitudeRequirement {
     @Column(name = "uni_code")
     private String uniCode;
 
-    @Column(name = "test_name")
-    private String testName;
-
-    @Column(name = "test_description", columnDefinition = "TEXT")
-    private String testDescription;
-
-    @Column(name = "passing_criteria", columnDefinition = "TEXT")
-    private String passingCriteria;
-
-    @Column(name = "application_deadline")
-    private String applicationDeadline;
-
     @Column(name = "conducted_by")
     private String conductedBy;
 

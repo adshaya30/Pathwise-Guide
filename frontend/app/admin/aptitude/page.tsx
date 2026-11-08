@@ -83,9 +83,7 @@ export default function AptitudeRequirementsPage() {
         courseName: course,
         universityName: uni,
         uniCode: code,
-        testName: 'Practical / Aptitude Test',
         conductedBy: uni,
-        passingCriteria: 'Pass in practical/aptitude test in addition to cut-off mark',
       };
 
       if (editingId) {

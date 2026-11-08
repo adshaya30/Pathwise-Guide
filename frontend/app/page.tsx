@@ -18,6 +18,12 @@ export default function Home() {
 
         <div className="flex items-center gap-4">
           <Link
+            href="/special-provisions"
+            className="text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:text-indigo-600 px-3 py-1.5 rounded-lg transition"
+          >
+            Special Provisions (Section 6.1)
+          </Link>
+          <Link
             href="/admin"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition-all hover:shadow-indigo-500/20"
           >
@@ -51,6 +57,12 @@ export default function Home() {
             className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5"
           >
             Launch Admin Portal Control Center
+          </Link>
+          <Link
+            href="/special-provisions"
+            className="px-6 py-3.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-sm font-semibold rounded-xl shadow-xs transition-all"
+          >
+            Special Provisions (Section 6.1)
           </Link>
           <Link
             href="/admin/cutoffs"

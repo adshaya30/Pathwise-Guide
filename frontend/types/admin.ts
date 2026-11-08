@@ -242,10 +242,6 @@ export interface AptitudeRequirement {
   uniCode: string;
   courseId?: string;
   universityId?: string;
-  testName?: string;
-  testDescription?: string;
-  passingCriteria?: string;
-  applicationDeadline?: string;
   conductedBy?: string;
   createdAt?: string;
   updatedAt?: string;

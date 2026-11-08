@@ -140,20 +140,19 @@ export default function UniCodesPage() {
                 <th className="px-4 py-3.5">Uni-Code</th>
                 <th className="px-4 py-3.5">Course Name</th>
                 <th className="px-4 py-3.5">University</th>
-                <th className="px-4 py-3.5">Description</th>
                 <th className="px-4 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-900">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     Loading Uni-Codes...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
                     No Uni-Codes found.
                   </td>
                 </tr>
@@ -168,9 +167,6 @@ export default function UniCodesPage() {
                     </td>
                     <td className="px-4 py-3.5 text-xs text-gray-600 dark:text-zinc-300">
                       {u.universityName}
-                    </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-500 max-w-xs truncate">
-                      {u.description || '—'}
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -264,18 +260,6 @@ export default function UniCodesPage() {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-              Description (Optional)
-            </label>
-            <input
-              type="text"
-              value={formData.description || ''}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
-            />
           </div>
 
           <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-zinc-800">
