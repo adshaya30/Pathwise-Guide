@@ -1,23 +1,5 @@
 services:
 
-  postgres:
-    image: postgres:17-alpine
-    container_name: pathwise-postgres
-    restart: unless-stopped
-    ports:
-      - "${DB_PORT:-5432}:5432"
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-pathwise}
-      POSTGRES_USER: ${POSTGRES_USER:-pathwise}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pathwise_password}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pathwise} -d ${POSTGRES_DB:-pathwise}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./backend
@@ -29,12 +11,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       SERVER_PORT: ${SERVER_PORT:-8080}
-      DB_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/${POSTGRES_DB:-pathwise}}
-      DB_USERNAME: ${DB_USERNAME:-${POSTGRES_USER:-pathwise}}
-      DB_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:-pathwise_password}}
-    depends_on:
-      postgres:
-        condition: service_healthy
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
 
   frontend:
     build:
@@ -48,7 +28,3 @@ services:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080/api}
     depends_on:
       - backend
-
-volumes:
-  postgres_data:
-

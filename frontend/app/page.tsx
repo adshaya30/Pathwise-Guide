@@ -1,67 +1,102 @@
-import Image from "next/image";
+import React from "react";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50/50 via-white to-gray-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 text-gray-900 dark:text-zinc-100 font-sans">
+      {/* Navigation */}
+      <header className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+            PW
+          </div>
+          <div>
+            <h1 className="font-bold text-lg tracking-tight">PathWise</h1>
+            <p className="text-xs text-gray-500 dark:text-zinc-400">Sri Lanka University Admissions</p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition-all hover:shadow-indigo-500/20"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <span>Admin Portal</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </Link>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <main className="max-w-5xl mx-auto px-6 pt-16 pb-24 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-6">
+          <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+          <span>UGC Admissions Handbook Platform</span>
+        </div>
+
+        <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-zinc-100 max-w-3xl mx-auto leading-tight">
+          Find Your Path to Sri Lankan State Universities
+        </h2>
+
+        <p className="mt-6 text-base sm:text-lg text-gray-600 dark:text-zinc-400 max-w-2xl mx-auto">
+          Explore official minimum Z-score cutoffs across all 25 administrative districts, undergraduate course intake capacities, aptitude tests, and university admissions criteria.
+        </p>
+
+        {/* Action Buttons */}
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <Link
+            href="/admin"
+            className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5"
           >
-            Documentation
-          </a>
+            Launch Admin Portal Control Center
+          </Link>
+          <Link
+            href="/admin/cutoffs"
+            className="px-6 py-3.5 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-800 dark:text-zinc-200 border border-gray-200 dark:border-zinc-800 text-sm font-semibold rounded-xl shadow-xs transition-all"
+          >
+            View 25-District Z-Scores
+          </Link>
+        </div>
+
+        {/* Feature Grid */}
+        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+          <div className="p-6 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 flex items-center justify-center font-bold text-lg mb-4">
+              📄
+            </div>
+            <h3 className="font-bold text-gray-900 dark:text-zinc-100 text-base">
+              AI Handbook Extraction
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2 leading-relaxed">
+              Upload official UGC Handbook PDFs. Apache PDFBox extracts raw page text while Gemini API structures candidate data for administrator review.
+            </p>
+          </div>
+
+          <div className="p-6 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-bold text-lg mb-4">
+              📈
+            </div>
+            <h3 className="font-bold text-gray-900 dark:text-zinc-100 text-base">
+              Single-Table 25 District Cutoffs
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2 leading-relaxed">
+              Unified database schema capturing all 25 Sri Lankan administrative districts with horizontal scrolling and Uni-Code auto-fill.
+            </p>
+          </div>
+
+          <div className="p-6 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 flex items-center justify-center font-bold text-lg mb-4">
+              🛡️
+            </div>
+            <h3 className="font-bold text-gray-900 dark:text-zinc-100 text-base">
+              Staging & Verification Workflow
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-zinc-400 mt-2 leading-relaxed">
+              No unverified data goes live. Admins inspect page-by-page extractions, edit candidate payloads, and publish atomically with rollback protection.
+            </p>
+          </div>
         </div>
       </main>
     </div>

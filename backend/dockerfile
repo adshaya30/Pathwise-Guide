@@ -21,6 +21,7 @@ WORKDIR /app
 
 # Run as non-root user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN mkdir -p /app/uploads /tmp/uploads/handbooks && chown -R appuser:appgroup /app/uploads /tmp/uploads
 USER appuser
 
 # Copy the built jar from the builder stage
