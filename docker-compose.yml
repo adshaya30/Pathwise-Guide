@@ -15,6 +15,10 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      SUPABASE_URL: ${SUPABASE_URL:-https://lygsnlknbkochocevupx.supabase.co}
+      SUPABASE_BUCKET: ${SUPABASE_BUCKET:-handbooks}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
 
   frontend:
     build:

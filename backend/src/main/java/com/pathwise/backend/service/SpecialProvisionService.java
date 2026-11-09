@@ -17,10 +17,7 @@ public class SpecialProvisionService {
 
     private final SpecialProvisionRepository specialProvisionRepository;
 
-    public List<SpecialProvision> getAllProvisions(String category) {
-        if (category != null && !category.isBlank()) {
-            return specialProvisionRepository.findByCategory(category);
-        }
+    public List<SpecialProvision> getAllProvisions() {
         return specialProvisionRepository.findAllByOrderByUniversityNameAscCourseOfStudyAsc();
     }
 
@@ -41,15 +38,6 @@ public class SpecialProvisionService {
         if (sp.getDifferentlyAbled() == null) sp.setDifferentlyAbled(0);
         if (sp.getBlindBraille() == null) sp.setBlindBraille(0);
 
-        if (sp.getTitle() == null || sp.getTitle().isBlank()) {
-            sp.setTitle(course + (!uni.isBlank() ? " - " + uni : ""));
-        }
-        if (sp.getDescription() == null || sp.getDescription().isBlank()) {
-            sp.setDescription("UGC Section 6.1 Special Provision for " + course + (!code.isBlank() ? " (" + code + ")" : ""));
-        }
-        if (sp.getCategory() == null || sp.getCategory().isBlank()) {
-            sp.setCategory("BLIND_AND_DIFFERENTLY_ABLED");
-        }
         return specialProvisionRepository.save(sp);
     }
 
@@ -97,12 +85,6 @@ public class SpecialProvisionService {
         existing.setUniCode(updated.getUniCode());
         existing.setDifferentlyAbled(updated.getDifferentlyAbled());
         existing.setBlindBraille(updated.getBlindBraille());
-        if (updated.getCategory() != null) existing.setCategory(updated.getCategory());
-        if (updated.getTitle() != null) existing.setTitle(updated.getTitle());
-        if (updated.getDescription() != null) existing.setDescription(updated.getDescription());
-        if (updated.getEligibleCourses() != null) existing.setEligibleCourses(updated.getEligibleCourses());
-        if (updated.getQuotaPercentage() != null) existing.setQuotaPercentage(updated.getQuotaPercentage());
-        if (updated.getConditions() != null) existing.setConditions(updated.getConditions());
         return specialProvisionRepository.save(existing);
     }
 
@@ -111,4 +93,3 @@ public class SpecialProvisionService {
         specialProvisionRepository.deleteById(id);
     }
 }
-

@@ -36,9 +36,6 @@ public class UniCode {
     @Column(name = "university_name", nullable = false)
     private String universityName;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
@@ -47,4 +44,3 @@ public class UniCode {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 }
-

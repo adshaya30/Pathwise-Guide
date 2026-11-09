@@ -29,7 +29,6 @@ export default function UniCodesPage() {
     courseName: '',
     universityId: '',
     universityName: '',
-    description: '',
   });
 
   const loadData = async () => {
@@ -62,7 +61,6 @@ export default function UniCodesPage() {
       courseName: courses[0]?.name || '',
       universityId: universities[0]?.id || '',
       universityName: universities[0]?.name || '',
-      description: '',
     });
     setIsModalOpen(true);
   };

@@ -1,4 +1,4 @@
-package com.pathwise.backend.controller;
+package com.pathwise.backend.controller.admin;
 
 import com.pathwise.backend.dto.DocumentUploadResponse;
 import com.pathwise.backend.dto.ExtractionProgressDto;

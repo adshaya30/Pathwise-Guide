@@ -13,6 +13,7 @@ import {
   ArtsBasketSubject,
   SpecialProvision,
   AptitudeRequirement,
+  OlRequirement,
   Stream,
   Subject,
   University,
@@ -277,9 +278,8 @@ export async function removeSubjectFromBasket(subjectLinkId: string): Promise<vo
 }
 
 // Special Provisions
-export async function getSpecialProvisions(category?: string): Promise<SpecialProvision[]> {
-  const q = category ? `?category=${encodeURIComponent(category)}` : '';
-  return fetchJson<SpecialProvision[]>(`/admin/special-provisions${q}`);
+export async function getSpecialProvisions(): Promise<SpecialProvision[]> {
+  return fetchJson<SpecialProvision[]>('/admin/special-provisions');
 }
 
 export async function createSpecialProvision(sp: Partial<SpecialProvision>): Promise<SpecialProvision> {
@@ -332,6 +332,40 @@ export async function updateAptitude(id: string, req: Partial<AptitudeRequiremen
 
 export async function deleteAptitude(id: string): Promise<void> {
   await fetch(`${API_BASE}/admin/aptitude/${id}`, { method: 'DELETE' });
+}
+
+// O/L Requirements
+export async function getOlRequirements(): Promise<OlRequirement[]> {
+  return fetchJson<OlRequirement[]>('/admin/ol-requirements');
+}
+
+export async function createOlRequirement(req: Partial<OlRequirement>): Promise<OlRequirement> {
+  return fetchJson<OlRequirement>('/admin/ol-requirements', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  });
+}
+
+export async function updateOlRequirement(id: string, req: Partial<OlRequirement>): Promise<OlRequirement> {
+  return fetchJson<OlRequirement>(`/admin/ol-requirements/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(req),
+  });
+}
+
+export async function deleteOlRequirement(id: string): Promise<void> {
+  await fetch(`${API_BASE}/admin/ol-requirements/${id}`, { method: 'DELETE' });
+}
+
+export async function batchCreateOlRequirements(list: Partial<OlRequirement>[]): Promise<OlRequirement[]> {
+  return fetchJson<OlRequirement[]>('/admin/ol-requirements/batch', {
+    method: 'POST',
+    body: JSON.stringify(list),
+  });
+}
+
+export async function getPublicOlRequirements(): Promise<OlRequirement[]> {
+  return fetchJson<OlRequirement[]>('/academic/ol-requirements');
 }
 
 // Streams & Subjects

@@ -15,6 +15,7 @@ public class DocumentUploadResponse {
     private String title;
     private String academicYear;
     private String fileName;
+    private String storageUrl;
     private String status;
     private String message;
 }

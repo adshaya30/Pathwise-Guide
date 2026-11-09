@@ -36,6 +36,8 @@ public class CourseService {
         existing.setName(updated.getName());
         existing.setStreamId(updated.getStreamId());
         existing.setStreamName(updated.getStreamName());
+        existing.setTotalIntake(updated.getTotalIntake());
+        existing.setMinimumEligibility(updated.getMinimumEligibility());
         existing.setDurationYears(updated.getDurationYears());
         existing.setDegreeTitle(updated.getDegreeTitle());
         existing.setDetails(updated.getDetails());

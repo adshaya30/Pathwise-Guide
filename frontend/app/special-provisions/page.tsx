@@ -41,7 +41,7 @@ export default function PublicSpecialProvisionsPage() {
       const q = searchQuery.toLowerCase();
       return (
         (p.universityName || '').toLowerCase().includes(q) ||
-        (p.courseOfStudy || p.title || '').toLowerCase().includes(q) ||
+        (p.courseOfStudy || '').toLowerCase().includes(q) ||
         (p.uniCode || '').toLowerCase().includes(q)
       );
     });
@@ -228,7 +228,7 @@ export default function PublicSpecialProvisionsPage() {
                           {sp.universityName || '—'}
                         </td>
                         <td className="px-5 py-2.5 font-medium text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800 text-sm">
-                          {sp.courseOfStudy || sp.title || '—'}
+                          {sp.courseOfStudy || '—'}
                         </td>
                         <td className="px-4 py-2.5 text-center font-mono font-semibold text-xs text-slate-900 dark:text-indigo-400 border-r border-slate-300 dark:border-zinc-800">
                           {sp.uniCode || '—'}

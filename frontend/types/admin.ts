@@ -133,7 +133,9 @@ export interface CourseOffering {
   universityCode: string;
   universityName: string;
   intakeCapacity?: number;
+  duration?: string | number;
   medium?: string;
+  specialization?: string;
   faculty?: string;
 }
 
@@ -142,6 +144,7 @@ export interface CourseMinimumRequirements {
   requiredSubjects?: string[];
   minGrades?: string;
   aptitudeRequired?: boolean;
+  description?: string;
 }
 
 export interface Course {
@@ -150,7 +153,9 @@ export interface Course {
   name: string;
   streamId?: string;
   streamName?: string;
-  durationYears: number;
+  totalIntake?: number | null;
+  minimumEligibility?: string;
+  durationYears?: number;
   degreeTitle?: string;
   details: string; // JSONB array of CourseOffering
   minimumRequirements: string; // JSONB of CourseMinimumRequirements
@@ -166,7 +171,6 @@ export interface UniCode {
   courseName: string;
   universityId: string;
   universityName: string;
-  description?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -188,12 +192,6 @@ export interface SpecialProvision {
   uniCode: string;
   differentlyAbled?: number | null;
   blindBraille?: number | null;
-  category?: 'DIFFERENTLY_ABLED' | 'BLIND_BRAILLE' | 'SPORTS' | 'EXCEPTIONAL' | string;
-  title?: string;
-  description?: string;
-  eligibleCourses?: string;
-  quotaPercentage?: number;
-  conditions?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -230,6 +228,7 @@ export interface Cutoff {
   monaragala?: number | null;
   ratnapura?: number | null;
   kegalle?: number | null;
+  nvqDistricts?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -243,6 +242,20 @@ export interface AptitudeRequirement {
   courseId?: string;
   universityId?: string;
   conductedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OlRequirement {
+  id: string;
+  uniCodes: string;
+  courseOfStudy: string;
+  sinhalaLanguage?: string;
+  english?: string;
+  mathematics?: string;
+  science?: string;
+  tamilLanguage?: string;
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
 }

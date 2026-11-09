@@ -27,7 +27,6 @@ export default function SpecialProvisionsPage() {
     uniCode: '',
     differentlyAbled: 1,
     blindBraille: 0,
-    category: 'BLIND_AND_DIFFERENTLY_ABLED',
   });
 
   // Batch Import / Paste Modal State
@@ -65,7 +64,6 @@ export default function SpecialProvisionsPage() {
       uniCode: '',
       differentlyAbled: 1,
       blindBraille: 0,
-      category: 'BLIND_AND_DIFFERENTLY_ABLED',
     });
     setIsModalOpen(true);
   };
@@ -74,11 +72,10 @@ export default function SpecialProvisionsPage() {
     setEditingId(sp.id);
     setFormData({
       universityName: sp.universityName || '',
-      courseOfStudy: sp.courseOfStudy || sp.title || '',
+      courseOfStudy: sp.courseOfStudy || '',
       uniCode: sp.uniCode || '',
       differentlyAbled: sp.differentlyAbled ?? 0,
       blindBraille: sp.blindBraille ?? 0,
-      category: sp.category || 'BLIND_AND_DIFFERENTLY_ABLED',
     });
     setIsModalOpen(true);
   };
@@ -97,14 +94,11 @@ export default function SpecialProvisionsPage() {
     e.preventDefault();
     try {
       const payload: Partial<SpecialProvision> = {
-        ...formData,
         universityName: formData.universityName?.trim() || '',
         courseOfStudy: formData.courseOfStudy?.trim() || '',
         uniCode: formData.uniCode?.trim().toUpperCase() || '',
         differentlyAbled: Number(formData.differentlyAbled ?? 0),
         blindBraille: Number(formData.blindBraille ?? 0),
-        title: `${formData.courseOfStudy} - ${formData.universityName}`,
-        description: `UGC Section 6.1 Special Provision for ${formData.courseOfStudy} (${formData.uniCode})`,
       };
 
       if (editingId) {
@@ -132,33 +126,9 @@ export default function SpecialProvisionsPage() {
       blindBraille: number;
     }> = [];
 
-    const knownUnis = [
-      'University of Sri Jayewardenepura',
-      'University of Colombo',
-      'University of Peradeniya',
-      'University of Kelaniya',
-      'University of Moratuwa',
-      'University of Jaffna',
-      'University of Ruhuna',
-      'Eastern University, Sri Lanka',
-      'Eastern University',
-      'South Eastern University of Sri Lanka',
-      'South Eastern University',
-      'Rajarata University of Sri Lanka',
-      'Rajarata University',
-      'Wayamba University of Sri Lanka',
-      'Wayamba University',
-      'Sabaragamuwa University of Sri Lanka',
-      'Sabaragamuwa University',
-      'Uva Wellassa University',
-      'University of the Visual & Performing Arts',
-      'University of the Visual and Performing Arts',
-      'Gampaha Wickramarachchi University',
-      'Open University of Sri Lanka',
-    ];
-
     let currentUniversity = '';
     const rowPattern = /^(.*?)\b(\d{3}[A-Z]?)\s+([0-9]+|[-–—]+)\s+([0-9]+|[-–—]+)\s*$/;
+    const genericInstPattern = /^(University\s+of\s+[\w\s&'-]+?|[\w\s&'-]+?\s+(?:University|Campus|Institute|College|Faculty)(?:,\s*[\w\s&'-]+?)?)\s+(.+)$/i;
 
     const parseSeat = (val: string): number => {
       const c = val.trim();
@@ -185,14 +155,14 @@ export default function SpecialProvisionsPage() {
         continue;
       }
 
-      // 1. Try CSV / TSV format
-      const tsvParts = line.split(/\t|,/);
-      if (tsvParts.length >= 5 && /\b\d{3}[A-Z]?\b/.test(tsvParts[2])) {
-        const uni = tsvParts[0].trim().replace(/^"/, '').replace(/"$/, '');
-        const course = tsvParts[1].trim().replace(/^"/, '').replace(/"$/, '');
-        const code = tsvParts[2].trim().toUpperCase().replace(/^"/, '').replace(/"$/, '');
-        const diff = parseSeat(tsvParts[3]);
-        const blind = parseSeat(tsvParts[4]);
+      // 1. Try CSV / TSV / Pipe format
+      const delimParts = line.split(/\t|\||,/);
+      if (delimParts.length >= 5 && /\b\d{3}[A-Z]?\b/.test(delimParts[2])) {
+        const uni = delimParts[0].trim().replace(/^["']/, '').replace(/["']$/, '');
+        const course = delimParts[1].trim().replace(/^["']/, '').replace(/["']$/, '');
+        const code = delimParts[2].trim().toUpperCase().replace(/^["']/, '').replace(/["']$/, '');
+        const diff = parseSeat(delimParts[3]);
+        const blind = parseSeat(delimParts[4]);
         if (uni) currentUniversity = uni;
         results.push({
           universityName: uni || currentUniversity,
@@ -215,29 +185,42 @@ export default function SpecialProvisionsPage() {
         let uni = '';
         let course = '';
 
-        const splitParts = prefix.split(/\t|\s{2,}/);
+        const splitParts = prefix.split(/\t|\||,|;|\s{2,}/);
         if (splitParts.length >= 2) {
           uni = splitParts[0].trim();
           course = splitParts[1].trim();
           currentUniversity = uni;
         } else {
+          // Dynamic match against registered universities from database
           let matched = false;
-          for (const ku of knownUnis) {
-            if (prefix.toLowerCase().startsWith(ku.toLowerCase())) {
-              uni = ku;
-              course = prefix.slice(ku.length).trim();
+          for (const u of universitiesList) {
+            if (prefix.toLowerCase().startsWith(u.toLowerCase())) {
+              uni = u;
+              course = prefix.slice(u.length).trim();
               currentUniversity = uni;
               matched = true;
               break;
             }
           }
+
+          // Generic academic institution pattern
+          if (!matched) {
+            const instMatch = prefix.match(genericInstPattern);
+            if (instMatch) {
+              uni = instMatch[1].trim();
+              course = instMatch[2].trim();
+              currentUniversity = uni;
+              matched = true;
+            }
+          }
+
           if (!matched) {
             if (currentUniversity) {
               uni = currentUniversity;
               course = prefix;
             } else {
               uni = prefix;
-              course = 'Arts';
+              course = '';
             }
           }
         }
@@ -258,7 +241,7 @@ export default function SpecialProvisionsPage() {
     }
 
     return results;
-  }, [importRawText]);
+  }, [importRawText, universitiesList]);
 
   const handleExecuteBatchImport = async () => {
     if (parsedImportRows.length === 0) {
@@ -288,7 +271,7 @@ export default function SpecialProvisionsPage() {
     const headers = ['University', 'Course of Study', 'Uni-Codes', 'Differently abled', 'Blind (Braille)'];
     const rows = provisions.map((p) => [
       `"${(p.universityName || '').replace(/"/g, '""')}"`,
-      `"${(p.courseOfStudy || p.title || '').replace(/"/g, '""')}"`,
+      `"${(p.courseOfStudy || '').replace(/"/g, '""')}"`,
       `"${p.uniCode || ''}"`,
       p.differentlyAbled ?? 0,
       p.blindBraille ?? 0,
@@ -314,7 +297,7 @@ export default function SpecialProvisionsPage() {
       const q = searchQuery.toLowerCase();
       return (
         (p.universityName || '').toLowerCase().includes(q) ||
-        (p.courseOfStudy || p.title || '').toLowerCase().includes(q) ||
+        (p.courseOfStudy || '').toLowerCase().includes(q) ||
         (p.uniCode || '').toLowerCase().includes(q)
       );
     });
@@ -511,7 +494,7 @@ export default function SpecialProvisionsPage() {
                         {sp.universityName || '—'}
                       </td>
                       <td className="px-5 py-2.5 font-medium text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800 text-sm">
-                        {sp.courseOfStudy || sp.title || '—'}
+                        {sp.courseOfStudy || '—'}
                       </td>
                       <td className="px-4 py-2.5 text-center font-mono font-semibold text-xs text-slate-900 dark:text-indigo-400 border-r border-slate-300 dark:border-zinc-800">
                         {sp.uniCode || '—'}
@@ -560,42 +543,15 @@ export default function SpecialProvisionsPage() {
           </p>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="mb-1">
               <label className="text-xs font-semibold text-gray-700 dark:text-zinc-300">
                 Paste Table Data:
               </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setImportRawText(`University of Colombo\tArts\t019A\t12\t08
-University of Peradeniya\tBiological Science\t006B\t01\t-
-University of Peradeniya\tPhysical Science\t013B\t01\t-
-University of Peradeniya\tManagement\t016B\t01\t-
-University of Peradeniya\tArts\t019B\t04\t04
-University of Peradeniya\tFood Science and Technology\t035B\t04\t-
-University of Sri Jayewardenepura\tEngineering\t008C\t05\t-
-University of Sri Jayewardenepura\tCommerce\t018C\t10\t-
-University of Sri Jayewardenepura\tArts\t019C\t08\t05
-University of Sri Jayewardenepura\tInformation Communication Technology\t104C\t02\t-
-University of Kelaniya\tBiological Science\t006D\t01\t-
-University of Kelaniya\tArts\t019D\t04\t05
-University of Jaffna\tBiological Science\t006E\t05\t-
-University of Jaffna\tPhysical Science\t013E\t05\t-
-University of Jaffna\tCommerce\t018E\t08\t-
-University of Jaffna\tArts\t019E\t10\t10
-University of Jaffna\tLaw\t025E\t01\t01
-University of Ruhuna\tArts\t019F\t02\t-
-University of Moratuwa\tInformation Technology (IT)\t026G\t01\t-`);
-                }}
-                className="text-2xs text-indigo-600 hover:text-indigo-800 font-semibold"
-              >
-                Insert UGC Handbook Sample Text
-              </button>
             </div>
             <textarea
               value={importRawText}
               onChange={(e) => setImportRawText(e.target.value)}
-              placeholder="e.g.&#10;University of Colombo   Arts   019A   12   08&#10;University of Peradeniya   Biological Science   006B   01   -&#10;..."
+              placeholder="Paste table lines directly (e.g. from PDF, Excel, TSV, CSV, or handbook table)..."
               rows={8}
               className="w-full p-3 font-mono text-xs bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               spellCheck={false}

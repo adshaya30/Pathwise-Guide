@@ -36,9 +36,14 @@ public class Course {
     @Column(name = "stream_name")
     private String streamName;
 
+    @Column(name = "total_intake")
+    private Integer totalIntake;
+
+    @Column(name = "minimum_eligibility", columnDefinition = "TEXT")
+    private String minimumEligibility;
+
     @Column(name = "duration_years", precision = 3, scale = 1)
-    @Builder.Default
-    private BigDecimal durationYears = BigDecimal.valueOf(4.0);
+    private BigDecimal durationYears;
 
     @Column(name = "degree_title")
     private String degreeTitle;

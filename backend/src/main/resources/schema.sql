@@ -15,9 +15,12 @@ CREATE TABLE IF NOT EXISTS documents (
     processed_pages INT DEFAULT 0,
     status VARCHAR(50) NOT NULL DEFAULT 'UPLOADED',
     error_message TEXT,
+    storage_url VARCHAR(1000),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS storage_url VARCHAR(1000);
 
 -- Extraction Jobs table
 CREATE TABLE IF NOT EXISTS extraction_jobs (
@@ -229,10 +232,13 @@ CREATE TABLE IF NOT EXISTS cutoffs (
     monaragala NUMERIC(8,4),
     ratnapura NUMERIC(8,4),
     kegalle NUMERIC(8,4),
+    nvq_districts TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_cutoff_unicode_year UNIQUE (uni_code_id, academic_year)
 );
+
+ALTER TABLE cutoffs ADD COLUMN IF NOT EXISTS nvq_districts TEXT;
 
 -- Aptitude Requirements table
 CREATE TABLE IF NOT EXISTS aptitude_requirements (

@@ -30,6 +30,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -43,6 +44,7 @@ public class DocumentProcessingService {
     private final DocumentPageRepository documentPageRepository;
     private final ExtractedRecordRepository extractedRecordRepository;
     private final GeminiExtractionService geminiExtractionService;
+    private final SupabaseStorageService supabaseStorageService;
     private final ObjectMapper objectMapper;
 
     @Value("${pathwise.upload.dir:uploads/handbooks}")
@@ -75,6 +77,9 @@ public class DocumentProcessingService {
             totalPages = doc.getNumberOfPages();
         }
 
+        byte[] fileBytes = file.getBytes();
+        Optional<String> supabaseUrlOpt = supabaseStorageService.uploadPdf(storedFileName, fileBytes);
+
         Document document = Document.builder()
                 .title(title != null && !title.isBlank() ? title : originalFilename)
                 .academicYear(academicYear != null && !academicYear.isBlank() ? academicYear : "2023/2024")
@@ -82,6 +87,7 @@ public class DocumentProcessingService {
                 .fileSize(file.getSize())
                 .fileType(file.getContentType() != null ? file.getContentType() : "application/pdf")
                 .storagePath(targetPath.toAbsolutePath().toString())
+                .storageUrl(supabaseUrlOpt.orElse(null))
                 .totalPages(totalPages)
                 .processedPages(0)
                 .status("UPLOADED")
@@ -105,6 +111,7 @@ public class DocumentProcessingService {
                 .title(savedDoc.getTitle())
                 .academicYear(savedDoc.getAcademicYear())
                 .fileName(savedDoc.getFileName())
+                .storageUrl(savedDoc.getStorageUrl())
                 .status("QUEUED")
                 .message("File uploaded successfully. Background extraction queued.")
                 .build();
@@ -189,6 +196,13 @@ public class DocumentProcessingService {
                 if (result.items != null && !result.items.isEmpty()) {
                     for (Map<String, Object> item : result.items) {
                         try {
+                            String validationNotes = null;
+                            if (item.containsKey("validationNotes") && item.get("validationNotes") != null) {
+                                validationNotes = item.get("validationNotes").toString();
+                            } else if ("CUTOFF".equalsIgnoreCase(result.pageType)) {
+                                validationNotes = GeminiExtractionService.validateCutoffDistricts(item);
+                            }
+
                             String payloadJson = objectMapper.writeValueAsString(item);
                             ExtractedRecord record = ExtractedRecord.builder()
                                     .documentId(doc.getId())
@@ -196,6 +210,7 @@ public class DocumentProcessingService {
                                     .moduleType(result.pageType)
                                     .status("PENDING")
                                     .rawPayload(payloadJson)
+                                    .validationNotes(validationNotes)
                                     .build();
                             extractedRecordRepository.save(record);
                             totalExtracted++;

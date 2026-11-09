@@ -235,11 +235,16 @@ export default function CutoffsPage() {
 
                     {DISTRICT_KEYS.map((d) => {
                       const val = c[d.key];
+                      const isNvq = c.nvqDistricts && c.nvqDistricts.toLowerCase().includes(d.key.toLowerCase());
                       return (
                         <td key={d.key} className="px-2.5 py-2.5 text-center font-mono text-[11px]">
                           {val !== undefined && val !== null ? (
                             <span className="text-gray-800 dark:text-zinc-200 font-medium">
                               {Number(val).toFixed(4)}
+                            </span>
+                          ) : isNvq ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                              NVQ
                             </span>
                           ) : (
                             <span className="text-gray-300 dark:text-zinc-700">—</span>

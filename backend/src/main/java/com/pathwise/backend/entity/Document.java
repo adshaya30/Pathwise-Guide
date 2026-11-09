@@ -39,6 +39,9 @@ public class Document {
     @Column(name = "storage_path", nullable = false, length = 500)
     private String storagePath;
 
+    @Column(name = "storage_url", length = 1000)
+    private String storageUrl;
+
     @Column(name = "total_pages")
     @Builder.Default
     private Integer totalPages = 0;

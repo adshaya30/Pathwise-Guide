@@ -23,6 +23,7 @@ public class PublicAcademicController {
     private final SpecialProvisionService specialProvisionService;
     private final AptitudeService aptitudeService;
     private final UniversityService universityService;
+    private final OlRequirementService olRequirementService;
 
     @GetMapping("/courses")
     public ResponseEntity<List<Course>> getActiveCourses() {
@@ -56,7 +57,7 @@ public class PublicAcademicController {
 
     @GetMapping("/provisions")
     public ResponseEntity<List<SpecialProvision>> getProvisions() {
-        return ResponseEntity.ok(specialProvisionService.getAllProvisions(null));
+        return ResponseEntity.ok(specialProvisionService.getAllProvisions());
     }
 
     @GetMapping("/aptitude")
@@ -67,6 +68,11 @@ public class PublicAcademicController {
     @GetMapping("/universities")
     public ResponseEntity<List<University>> getUniversities() {
         return ResponseEntity.ok(universityService.getAllUniversities());
+    }
+
+    @GetMapping("/ol-requirements")
+    public ResponseEntity<List<OlRequirement>> getOlRequirements() {
+        return ResponseEntity.ok(olRequirementService.getAllRequirements());
     }
 }
 

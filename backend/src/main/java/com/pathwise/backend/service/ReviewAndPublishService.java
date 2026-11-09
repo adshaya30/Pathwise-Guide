@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +34,7 @@ public class ReviewAndPublishService {
     private final SubjectRepository subjectRepository;
     private final SpecialProvisionRepository specialProvisionRepository;
     private final AptitudeRequirementRepository aptitudeRequirementRepository;
+    private final OlRequirementRepository olRequirementRepository;
     private final StreamRepository streamRepository;
     private final ObjectMapper objectMapper;
 
@@ -106,6 +109,7 @@ public class ReviewAndPublishService {
             case "ARTS_BASKET" -> publishArtsBasket(payload);
             case "SPECIAL_PROVISION" -> publishSpecialProvision(payload);
             case "APTITUDE" -> publishAptitude(payload);
+            case "OL_REQUIREMENT", "GCE_OL_REQUIREMENT", "OL" -> publishOlRequirement(payload);
             case "STREAM_SUBJECT" -> publishStreamSubject(payload);
             default -> throw new UnsupportedOperationException("Unsupported module type: " + moduleType);
         };
@@ -119,6 +123,8 @@ public class ReviewAndPublishService {
         course.setCode(code);
         course.setName(name);
         if (p.has("streamName")) course.setStreamName(p.get("streamName").asText());
+        if (p.has("totalIntake")) course.setTotalIntake(p.get("totalIntake").asInt());
+        if (p.has("minimumEligibility")) course.setMinimumEligibility(p.get("minimumEligibility").asText());
         if (p.has("durationYears")) course.setDurationYears(BigDecimal.valueOf(p.get("durationYears").asDouble(4.0)));
         if (p.has("degreeTitle")) course.setDegreeTitle(p.get("degreeTitle").asText());
         if (p.has("details")) course.setDetails(p.get("details").toString());
@@ -157,7 +163,6 @@ public class ReviewAndPublishService {
         uniCode.setCourseName(course.getName());
         uniCode.setUniversityId(university.getId());
         uniCode.setUniversityName(university.getName());
-        if (p.has("description")) uniCode.setDescription(p.get("description").asText());
 
         UniCode saved = uniCodeRepository.save(uniCode);
         return saved.getId().toString();
@@ -220,6 +225,26 @@ public class ReviewAndPublishService {
         cutoff.setRatnapura(getDecimal(p, "ratnapura"));
         cutoff.setKegalle(getDecimal(p, "kegalle"));
 
+        // Detect and store NVQ districts
+        List<String> nvqList = new ArrayList<>();
+        for (String districtKey : GeminiExtractionService.DISTRICT_KEYS) {
+            if (p.has(districtKey)) {
+                String valStr = p.get(districtKey).asText();
+                if (valStr != null && valStr.toUpperCase().contains("NVQ")) {
+                    nvqList.add(districtKey);
+                }
+            }
+        }
+        if (p.has("nvqDistricts") && p.get("nvqDistricts").isArray()) {
+            for (JsonNode n : p.get("nvqDistricts")) {
+                String dName = n.asText().toLowerCase().trim();
+                if (!dName.isEmpty() && !nvqList.contains(dName)) {
+                    nvqList.add(dName);
+                }
+            }
+        }
+        cutoff.setNvqDistricts(nvqList.isEmpty() ? null : String.join(",", nvqList));
+
         Cutoff saved = cutoffRepository.save(cutoff);
         return saved.getId().toString();
     }
@@ -228,7 +253,22 @@ public class ReviewAndPublishService {
         for (String k : keys) {
             if (p.has(k) && !p.get(k).isNull()) {
                 try {
-                    return BigDecimal.valueOf(p.get(k).asDouble());
+                    String text = p.get(k).asText().trim();
+                    if (text.isEmpty() || text.equals("-") || text.equalsIgnoreCase("null") || text.equalsIgnoreCase("n/a") || text.toUpperCase().contains("NVQ")) {
+                        return null;
+                    }
+                    return new BigDecimal(text);
+                } catch (Exception ignored) {}
+            }
+            // Case-insensitive / snake_case check
+            String snake = k.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
+            if (!snake.equals(k) && p.has(snake) && !p.get(snake).isNull()) {
+                try {
+                    String text = p.get(snake).asText().trim();
+                    if (text.isEmpty() || text.equals("-") || text.equalsIgnoreCase("null") || text.equalsIgnoreCase("n/a") || text.toUpperCase().contains("NVQ")) {
+                        return null;
+                    }
+                    return new BigDecimal(text);
                 } catch (Exception ignored) {}
             }
         }
@@ -300,10 +340,6 @@ public class ReviewAndPublishService {
         int blindBraille = p.has("blindBraille") ? p.get("blindBraille").asInt() :
                 p.has("blind_braille") ? p.get("blind_braille").asInt() : 0;
 
-        String cat = p.path("category").asText("BLIND_AND_DIFFERENTLY_ABLED");
-        String title = p.path("title").asText(courseOfStudy + (!uniName.isBlank() ? " - " + uniName : ""));
-        String description = p.path("description").asText("Special Provision for " + courseOfStudy + (!uniCode.isBlank() ? " (" + uniCode + ")" : ""));
-
         // Check if record already exists by uniCode or (universityName, courseOfStudy, uniCode)
         SpecialProvision sp = null;
         if (!uniCode.isBlank()) {
@@ -320,20 +356,12 @@ public class ReviewAndPublishService {
                     .uniCode(uniCode)
                     .differentlyAbled(differentlyAbled)
                     .blindBraille(blindBraille)
-                    .category(cat)
-                    .title(title)
-                    .description(description)
-                    .quotaPercentage(p.has("quotaPercentage") ? BigDecimal.valueOf(p.get("quotaPercentage").asDouble()) : null)
-                    .conditions(p.path("conditions").asText(null))
                     .build();
         } else {
             sp.setUniversityName(uniName);
             sp.setCourseOfStudy(courseOfStudy);
             sp.setDifferentlyAbled(differentlyAbled);
             sp.setBlindBraille(blindBraille);
-            if (p.has("category")) sp.setCategory(cat);
-            if (p.has("title")) sp.setTitle(title);
-            if (p.has("description")) sp.setDescription(description);
         }
 
         SpecialProvision saved = specialProvisionRepository.save(sp);
@@ -359,6 +387,58 @@ public class ReviewAndPublishService {
                 .build();
 
         AptitudeRequirement saved = aptitudeRequirementRepository.save(req);
+        return saved.getId().toString();
+    }
+
+    private String publishOlRequirement(JsonNode p) {
+        String uniCodes = p.has("uniCodes") ? p.get("uniCodes").asText().trim() :
+                p.has("uniCode") ? p.get("uniCode").asText().trim() : "";
+        String courseOfStudy = p.has("courseOfStudy") ? p.get("courseOfStudy").asText().trim() :
+                p.has("courseName") ? p.get("courseName").asText().trim() : "";
+
+        String sinLang = p.has("sinhalaLanguage") ? p.get("sinhalaLanguage").asText().trim() :
+                p.has("sinLang") ? p.get("sinLang").asText().trim() : "";
+        String eng = p.has("english") ? p.get("english").asText().trim() :
+                p.has("eng") ? p.get("eng").asText().trim() : "";
+        String mat = p.has("mathematics") ? p.get("mathematics").asText().trim() :
+                p.has("mat") ? p.get("mat").asText().trim() : "";
+        String sci = p.has("science") ? p.get("science").asText().trim() :
+                p.has("sci") ? p.get("sci").asText().trim() : "";
+        String tamLang = p.has("tamilLanguage") ? p.get("tamilLanguage").asText().trim() :
+                p.has("tamLang") ? p.get("tamLang").asText().trim() : "";
+        String notes = p.path("notes").asText("").trim();
+
+        OlRequirement req = null;
+        if (!uniCodes.isBlank()) {
+            req = olRequirementRepository.findByUniCodes(uniCodes).orElse(null);
+        }
+        if (req == null && !courseOfStudy.isBlank()) {
+            req = olRequirementRepository.findByCourseOfStudyIgnoreCase(courseOfStudy).orElse(null);
+        }
+
+        if (req == null) {
+            req = OlRequirement.builder()
+                    .uniCodes(uniCodes)
+                    .courseOfStudy(courseOfStudy)
+                    .sinhalaLanguage(sinLang)
+                    .english(eng)
+                    .mathematics(mat)
+                    .science(sci)
+                    .tamilLanguage(tamLang)
+                    .notes(notes)
+                    .build();
+        } else {
+            req.setUniCodes(uniCodes);
+            req.setCourseOfStudy(courseOfStudy);
+            req.setSinhalaLanguage(sinLang);
+            req.setEnglish(eng);
+            req.setMathematics(mat);
+            req.setScience(sci);
+            req.setTamilLanguage(tamLang);
+            if (!notes.isBlank()) req.setNotes(notes);
+        }
+
+        OlRequirement saved = olRequirementRepository.save(req);
         return saved.getId().toString();
     }
 

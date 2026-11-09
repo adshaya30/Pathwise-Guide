@@ -1,4 +1,4 @@
-package com.pathwise.backend.controller;
+package com.pathwise.backend.controller.admin;
 
 import com.pathwise.backend.entity.SpecialProvision;
 import com.pathwise.backend.service.SpecialProvisionService;
@@ -18,8 +18,8 @@ public class AdminSpecialProvisionController {
     private final SpecialProvisionService specialProvisionService;
 
     @GetMapping
-    public ResponseEntity<List<SpecialProvision>> listProvisions(@RequestParam(required = false) String category) {
-        return ResponseEntity.ok(specialProvisionService.getAllProvisions(category));
+    public ResponseEntity<List<SpecialProvision>> listProvisions() {
+        return ResponseEntity.ok(specialProvisionService.getAllProvisions());
     }
 
     @GetMapping("/{id}")
@@ -48,4 +48,3 @@ public class AdminSpecialProvisionController {
         return ResponseEntity.noContent().build();
     }
 }
-

@@ -1,4 +1,4 @@
-package com.pathwise.backend.controller;
+package com.pathwise.backend.controller.admin;
 
 import com.pathwise.backend.entity.DocumentPage;
 import com.pathwise.backend.repository.DocumentPageRepository;

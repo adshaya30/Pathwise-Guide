@@ -114,6 +114,9 @@ public class Cutoff {
     @Column(precision = 8, scale = 4)
     private BigDecimal kegalle;
 
+    @Column(name = "nvq_districts", columnDefinition = "TEXT")
+    private String nvqDistricts;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

@@ -10,9 +10,7 @@ import java.util.UUID;
 
 @Repository
 public interface SpecialProvisionRepository extends JpaRepository<SpecialProvision, UUID> {
-    List<SpecialProvision> findByCategory(String category);
     List<SpecialProvision> findAllByOrderByUniversityNameAscCourseOfStudyAsc();
     Optional<SpecialProvision> findByUniCode(String uniCode);
     Optional<SpecialProvision> findByUniversityNameAndCourseOfStudyAndUniCode(String universityName, String courseOfStudy, String uniCode);
 }
-
