@@ -19,12 +19,13 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Form states
   const [title, setTitle] = useState('');
-  const [academicYear, setAcademicYear] = useState('2023/2024');
+  const [academicYear, setAcademicYear] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Active jobs map: documentId -> ExtractionJob
@@ -37,9 +38,8 @@ export default function DocumentsPage() {
       const docs = await getDocuments();
       setDocuments(docs);
 
-      // Check for processing documents and fetch their jobs
-      const processingDocs = docs.filter((d) => d.status === 'PROCESSING' || d.status === 'UPLOADED');
-      for (const d of processingDocs) {
+      // Fetch latest jobs for all documents so progress and error details are visible
+      for (const d of docs) {
         try {
           const jobs = await getDocumentJobs(d.id);
           if (jobs.length > 0) {
@@ -97,10 +97,14 @@ export default function DocumentsPage() {
 
   const handleReprocess = async (id: string) => {
     try {
+      setReprocessingId(id);
+      setErrorMessage(null);
       await reprocessDocument(id);
       await fetchDocuments();
     } catch (err: any) {
-      alert('Reprocess failed: ' + err.message);
+      setErrorMessage('Reprocess failed: ' + err.message);
+    } finally {
+      setReprocessingId(null);
     }
   };
 
@@ -185,7 +189,11 @@ export default function DocumentsPage() {
               ) : (
                 documents.map((doc) => {
                   const job = activeJobs[doc.id];
-                  const isProcessing = doc.status === 'PROCESSING' || doc.status === 'UPLOADED';
+                  // Truly active only if the job is actively PROCESSING/QUEUED and hasn't failed/cancelled
+                  const isJobActive = job?.status === 'PROCESSING' || job?.status === 'QUEUED';
+                  const isDocActive = (doc.status === 'PROCESSING' || doc.status === 'UPLOADED') &&
+                    job?.status !== 'CANCELLED' && job?.status !== 'FAILED';
+                  const isProcessing = isJobActive || isDocActive;
 
                   return (
                     <tr key={doc.id} className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60">
@@ -212,17 +220,21 @@ export default function DocumentsPage() {
                           <div className="w-48 space-y-1">
                             <div className="flex justify-between text-xs font-semibold text-blue-600 dark:text-blue-400">
                               <span>Extracting...</span>
-                              <span>{job ? job.progressPercent : 10}%</span>
+                              <span>{job ? job.progressPercent : 0}%</span>
                             </div>
                             <div className="w-full bg-blue-100 dark:bg-blue-950/60 h-2 rounded-full overflow-hidden">
                               <div
                                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${job ? job.progressPercent : 10}%` }}
+                                style={{ width: `${job ? job.progressPercent : 0}%` }}
                               />
                             </div>
                             {job?.currentStep && (
                               <p className="text-[11px] text-gray-400 truncate">{job.currentStep}</p>
                             )}
+                          </div>
+                        ) : doc.status === 'CANCELLED' || job?.status === 'CANCELLED' ? (
+                          <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                            Cancelled at {doc.processedPages} of {doc.totalPages} pages
                           </div>
                         ) : (
                           <div className="text-xs text-gray-600 dark:text-zinc-400">
@@ -232,7 +244,14 @@ export default function DocumentsPage() {
                       </td>
 
                       <td className="px-4 py-3.5">
-                        <StatusBadge status={doc.status} size="sm" />
+                        <div className="space-y-1">
+                          <StatusBadge status={job?.status === 'CANCELLED' && doc.status === 'PROCESSING' ? 'CANCELLED' : doc.status} size="sm" />
+                          {(doc.status === 'FAILED' || job?.status === 'FAILED') && (
+                            <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium max-w-xs break-words">
+                              {doc.errorMessage || job?.errorMessage || 'Extraction failed'}
+                            </p>
+                          )}
+                        </div>
                       </td>
 
                       <td className="px-4 py-3.5 text-right">
@@ -244,21 +263,31 @@ export default function DocumentsPage() {
                             Inspect Pages
                           </Link>
 
-                          {isProcessing ? (
+                          {isProcessing && (
                             <button
                               onClick={() => handleCancelJob(doc.id)}
                               className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded border border-rose-200"
+                              title="Cancel current extraction"
                             >
                               Cancel
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => handleReprocess(doc.id)}
-                              className="px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded border border-gray-200 dark:border-zinc-700"
-                            >
-                              Reprocess
-                            </button>
                           )}
+
+                          <button
+                            onClick={() => handleReprocess(doc.id)}
+                            disabled={reprocessingId === doc.id}
+                            className="px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded border border-gray-200 dark:border-zinc-700 disabled:opacity-50 flex items-center gap-1"
+                            title={isProcessing ? "Restart extraction from page 1" : "Reprocess handbook extraction"}
+                          >
+                            {reprocessingId === doc.id ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                <span>Queuing...</span>
+                              </>
+                            ) : (
+                              <span>Reprocess</span>
+                            )}
+                          </button>
 
                           <button
                             onClick={() => handleDelete(doc.id)}
@@ -297,25 +326,26 @@ export default function DocumentsPage() {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. UGC Admissions Handbook 2023/2024"
+              placeholder="Enter Handbook Document Title"
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-              Academic Year *
+              Handbook Academic Year *
             </label>
-            <select
+            <input
+              type="text"
+              required
               value={academicYear}
               onChange={(e) => setAcademicYear(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="2024/2025">2024/2025</option>
-              <option value="2023/2024">2023/2024</option>
-              <option value="2022/2023">2022/2023</option>
-              <option value="2021/2022">2021/2022</option>
-            </select>
+              placeholder="Academic Year (YYYY/YYYY)"
+              className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-mono"
+            />
+            <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1">
+              Note: When uploading a handbook for Academic Year YYYY/YYYY+1, published minimum Z-Score cutoffs will automatically be cataloged under the prior academic year (YYYY-1)/YYYY.
+            </p>
           </div>
 
           <div>

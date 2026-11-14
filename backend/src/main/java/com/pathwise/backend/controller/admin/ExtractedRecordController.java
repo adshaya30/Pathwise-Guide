@@ -1,5 +1,7 @@
 package com.pathwise.backend.controller.admin;
 
+import com.pathwise.backend.dto.BulkApproveRequest;
+import com.pathwise.backend.dto.BulkApproveResponse;
 import com.pathwise.backend.dto.RecordRejectRequest;
 import com.pathwise.backend.dto.RecordReviewRequest;
 import com.pathwise.backend.entity.ExtractedRecord;
@@ -57,6 +59,13 @@ public class ExtractedRecordController {
             @RequestBody(required = false) RecordReviewRequest request) {
         ExtractedRecord approved = reviewAndPublishService.approveAndPublish(id, request);
         return ResponseEntity.ok(approved);
+    }
+
+    @PostMapping("/bulk-approve")
+    public ResponseEntity<BulkApproveResponse> bulkApprove(
+            @RequestBody(required = false) BulkApproveRequest request) {
+        BulkApproveResponse response = reviewAndPublishService.bulkApprove(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/reject")

@@ -21,7 +21,13 @@ export default function Home() {
             href="/special-provisions"
             className="text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:text-indigo-600 px-3 py-1.5 rounded-lg transition"
           >
-            Special Provisions (Section 6.1)
+            Special Provisions
+          </Link>
+          <Link
+            href="/ol-requirements"
+            className="text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:text-indigo-600 px-3 py-1.5 rounded-lg transition"
+          >
+            O/L Requirements
           </Link>
           <Link
             href="/admin"
@@ -62,7 +68,13 @@ export default function Home() {
             href="/special-provisions"
             className="px-6 py-3.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-sm font-semibold rounded-xl shadow-xs transition-all"
           >
-            Special Provisions (Section 6.1)
+            Special Provisions
+          </Link>
+          <Link
+            href="/ol-requirements"
+            className="px-6 py-3.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 text-sm font-semibold rounded-xl shadow-xs transition-all"
+          >
+            O/L Requirements
           </Link>
           <Link
             href="/admin/cutoffs"

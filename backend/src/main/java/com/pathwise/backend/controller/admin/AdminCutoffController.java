@@ -28,13 +28,13 @@ public class AdminCutoffController {
     }
 
     @PostMapping
-    public ResponseEntity<Cutoff> createCutoff(@RequestBody Cutoff cutoff) {
-        return ResponseEntity.ok(cutoffService.createCutoff(cutoff));
+    public ResponseEntity<Cutoff> createCutoff(@RequestBody java.util.Map<String, Object> payload) {
+        return ResponseEntity.ok(cutoffService.createCutoffFromMap(payload));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Cutoff> updateCutoff(@PathVariable UUID id, @RequestBody Cutoff cutoff) {
-        return ResponseEntity.ok(cutoffService.updateCutoff(id, cutoff));
+    public ResponseEntity<Cutoff> updateCutoff(@PathVariable UUID id, @RequestBody java.util.Map<String, Object> payload) {
+        return ResponseEntity.ok(cutoffService.updateCutoffFromMap(id, payload));
     }
 
     @DeleteMapping("/{id}")

@@ -5,6 +5,7 @@ import {
   ExtractionJob,
   ExtractionProgress,
   ExtractedRecord,
+  BulkApproveResponse,
   Course,
   UniCode,
   Cutoff,
@@ -143,6 +144,17 @@ export async function rejectRecord(id: string, rejectionReason: string, reviewed
   return fetchJson<ExtractedRecord>(`/admin/extracted-records/${id}/reject`, {
     method: 'POST',
     body: JSON.stringify({ rejectionReason, reviewedBy }),
+  });
+}
+
+export async function bulkApproveRecords(
+  recordIds?: string[],
+  moduleType?: string,
+  reviewedBy = 'Chief Admissions Admin'
+): Promise<BulkApproveResponse> {
+  return fetchJson<BulkApproveResponse>('/admin/extracted-records/bulk-approve', {
+    method: 'POST',
+    body: JSON.stringify({ recordIds, moduleType, reviewedBy }),
   });
 }
 

@@ -18,12 +18,12 @@ export default function CoursesPage() {
   const [formData, setFormData] = useState<Partial<Course>>({
     code: '',
     name: '',
-    streamName: 'Physical Science',
+    streamName: '',
     totalIntake: undefined,
     minimumEligibility: '',
     degreeTitle: '',
     details: '[]',
-    minimumRequirements: '{}',
+    minimumRequirements: '',
     isActive: true,
   });
 
@@ -48,26 +48,12 @@ export default function CoursesPage() {
     setFormData({
       code: '',
       name: '',
-      streamName: 'Physical Science',
+      streamName: '',
       totalIntake: undefined,
       minimumEligibility: '',
       degreeTitle: '',
-      details: JSON.stringify(
-        [
-          {
-            universityCode: 'UOC',
-            universityName: 'University of Colombo',
-            intakeCapacity: 100,
-            duration: '4 Years',
-            medium: 'English',
-            specialization: '',
-            faculty: '',
-          },
-        ],
-        null,
-        2
-      ),
-      minimumRequirements: '{"alStream":"Physical Science","aptitudeRequired":false}',
+      details: '[]',
+      minimumRequirements: '',
       isActive: true,
     });
     setIsModalOpen(true);
@@ -365,7 +351,7 @@ export default function CoursesPage() {
                 required
                 value={formData.code || ''}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="e.g. 001"
+                placeholder="Enter Course Code"
                 className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
@@ -377,7 +363,7 @@ export default function CoursesPage() {
                 type="text"
                 value={formData.streamName || ''}
                 onChange={(e) => setFormData({ ...formData, streamName: e.target.value })}
-                placeholder="e.g. Biological Science, Physical Science"
+                placeholder="Enter Stream Name"
                 className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
@@ -392,7 +378,7 @@ export default function CoursesPage() {
               required
               value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g. Medicine, Computer Science & Engineering"
+              placeholder="Enter Course Name"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
@@ -405,7 +391,7 @@ export default function CoursesPage() {
               type="text"
               value={formData.degreeTitle || ''}
               onChange={(e) => setFormData({ ...formData, degreeTitle: e.target.value })}
-              placeholder="e.g. Bachelor of Medicine, Bachelor of Surgery (MBBS)"
+              placeholder="Enter Degree Title"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
@@ -436,7 +422,7 @@ export default function CoursesPage() {
                 type="text"
                 value={formData.minimumEligibility || ''}
                 onChange={(e) => setFormData({ ...formData, minimumEligibility: e.target.value })}
-                placeholder="e.g. 3 passes in Biology, Chemistry, Physics"
+                placeholder="Enter Minimum Eligibility"
                 className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>

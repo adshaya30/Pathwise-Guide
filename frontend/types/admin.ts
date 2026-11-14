@@ -82,6 +82,13 @@ export interface ExtractedRecord {
   updatedAt: string;
 }
 
+export interface BulkApproveResponse {
+  totalRequested: number;
+  approvedCount: number;
+  failedCount: number;
+  errors?: string[];
+}
+
 export interface University {
   id: string;
   code: string;

@@ -198,7 +198,7 @@ export default function DistrictsPage() {
               required
               value={formData.code || ''}
               onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              placeholder="e.g. COLOMBO"
+              placeholder="Enter District Code"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 font-mono"
             />
           </div>
@@ -212,7 +212,7 @@ export default function DistrictsPage() {
               required
               value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g. Colombo"
+              placeholder="Enter District Name"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100"
             />
           </div>
@@ -222,7 +222,7 @@ export default function DistrictsPage() {
               Province *
             </label>
             <select
-              value={formData.province || 'Western'}
+              value={formData.province || ''}
               onChange={(e) => setFormData({ ...formData, province: e.target.value })}
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100"
             >

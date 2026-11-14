@@ -272,7 +272,7 @@ export default function StreamsPage() {
               required
               value={streamFormData.code || ''}
               onChange={(e) => setStreamFormData({ ...streamFormData, code: e.target.value.toUpperCase() })}
-              placeholder="e.g. PHYSICAL_SCIENCE"
+              placeholder="Enter Stream Code"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 font-mono"
             />
           </div>
@@ -286,7 +286,7 @@ export default function StreamsPage() {
               required
               value={streamFormData.name || ''}
               onChange={(e) => setStreamFormData({ ...streamFormData, name: e.target.value })}
-              placeholder="e.g. Physical Science (Mathematics)"
+              placeholder="Enter Stream Name"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100"
             />
           </div>
@@ -299,7 +299,7 @@ export default function StreamsPage() {
               rows={3}
               value={streamFormData.description || ''}
               onChange={(e) => setStreamFormData({ ...streamFormData, description: e.target.value })}
-              placeholder="e.g. Combined Mathematics, Physics, Chemistry..."
+              placeholder="Enter Description / Subject Combinations"
               className="w-full p-2.5 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
             />
           </div>
@@ -339,7 +339,7 @@ export default function StreamsPage() {
               required
               value={subjectFormData.code || ''}
               onChange={(e) => setSubjectFormData({ ...subjectFormData, code: e.target.value.toUpperCase() })}
-              placeholder="e.g. 01, PHYS, CHEM"
+              placeholder="Enter Subject Code"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 font-mono"
             />
           </div>
@@ -353,7 +353,7 @@ export default function StreamsPage() {
               required
               value={subjectFormData.name || ''}
               onChange={(e) => setSubjectFormData({ ...subjectFormData, name: e.target.value })}
-              placeholder="e.g. Combined Mathematics"
+              placeholder="Enter Subject Name"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100"
             />
           </div>
@@ -366,7 +366,7 @@ export default function StreamsPage() {
               type="text"
               value={subjectFormData.basketCategory || ''}
               onChange={(e) => setSubjectFormData({ ...subjectFormData, basketCategory: e.target.value })}
-              placeholder="e.g. PHYSICAL_SCIENCE, ARTS"
+              placeholder="Enter Basket / Category"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
             />
           </div>

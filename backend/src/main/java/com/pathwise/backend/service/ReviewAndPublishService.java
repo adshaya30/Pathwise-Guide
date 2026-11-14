@@ -2,6 +2,8 @@ package com.pathwise.backend.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pathwise.backend.dto.BulkApproveRequest;
+import com.pathwise.backend.dto.BulkApproveResponse;
 import com.pathwise.backend.dto.RecordRejectRequest;
 import com.pathwise.backend.dto.RecordReviewRequest;
 import com.pathwise.backend.entity.*;
@@ -9,7 +11,10 @@ import com.pathwise.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -37,6 +42,7 @@ public class ReviewAndPublishService {
     private final OlRequirementRepository olRequirementRepository;
     private final StreamRepository streamRepository;
     private final ObjectMapper objectMapper;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional
     public ExtractedRecord approveAndPublish(UUID recordId, RecordReviewRequest request) {
@@ -69,6 +75,73 @@ public class ReviewAndPublishService {
         record.setReviewedAt(OffsetDateTime.now());
 
         return extractedRecordRepository.save(record);
+    }
+
+    public BulkApproveResponse bulkApprove(BulkApproveRequest request) {
+        String reviewer = (request != null && request.getReviewedBy() != null && !request.getReviewedBy().isBlank())
+                ? request.getReviewedBy()
+                : "Chief Admissions Admin";
+
+        List<ExtractedRecord> targetRecords;
+        if (request != null && request.getRecordIds() != null && !request.getRecordIds().isEmpty()) {
+            targetRecords = extractedRecordRepository.findAllById(request.getRecordIds());
+        } else if (request != null && request.getModuleType() != null && !request.getModuleType().isBlank()) {
+            targetRecords = extractedRecordRepository.findByModuleTypeAndStatusOrderByCreatedAtDesc(request.getModuleType(), "PENDING");
+        } else {
+            targetRecords = extractedRecordRepository.findByStatusOrderByCreatedAtDesc("PENDING");
+        }
+
+        TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
+        txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        int approvedCount = 0;
+        int failedCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (ExtractedRecord record : targetRecords) {
+            if ("APPROVED".equals(record.getStatus())) {
+                continue;
+            }
+            try {
+                txTemplate.executeWithoutResult(status -> {
+                    ExtractedRecord currentRec = extractedRecordRepository.findById(record.getId())
+                            .orElseThrow(() -> new IllegalArgumentException("Record not found: " + record.getId()));
+                    if ("APPROVED".equals(currentRec.getStatus())) {
+                        return;
+                    }
+                    try {
+                        JsonNode payload = objectMapper.readTree(currentRec.getRawPayload());
+                        String publishedId = publishPayloadToModule(currentRec.getModuleType(), payload);
+
+                        currentRec.setStatus("APPROVED");
+                        currentRec.setPublishedRecordId(publishedId);
+                        currentRec.setReviewedBy(reviewer);
+                        currentRec.setReviewedAt(OffsetDateTime.now());
+                        extractedRecordRepository.save(currentRec);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e.getMessage(), e);
+                    }
+                });
+                approvedCount++;
+            } catch (Exception e) {
+                failedCount++;
+                String detail = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+                String err = String.format("Record %s (Page %d, %s): %s",
+                        record.getId(), record.getPageNumber(), record.getModuleType(), detail);
+                log.warn("Bulk approval failed for record {}: {}", record.getId(), detail);
+                errors.add(err);
+            }
+        }
+
+        log.info("Bulk approve completed: {} approved, {} failed out of {} total",
+                approvedCount, failedCount, targetRecords.size());
+
+        return BulkApproveResponse.builder()
+                .totalRequested(targetRecords.size())
+                .approvedCount(approvedCount)
+                .failedCount(failedCount)
+                .errors(errors)
+                .build();
     }
 
     @Transactional
@@ -116,17 +189,24 @@ public class ReviewAndPublishService {
     }
 
     private String publishCourse(JsonNode p) {
-        String code = p.path("code").asText(UUID.randomUUID().toString().substring(0, 6));
-        String name = p.path("name").asText("Untitled Course");
+        String code = p.path("code").asText("").trim();
+        String name = p.path("name").asText("").trim();
+        if (code.isBlank()) {
+            code = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        }
 
-        Course course = courseRepository.findByCode(code).orElse(new Course());
+        Course course = courseRepository.findByCode(code)
+                .or(() -> !name.isBlank() ? courseRepository.findByNameIgnoreCase(name) : Optional.empty())
+                .orElse(new Course());
         course.setCode(code);
         course.setName(name);
-        if (p.has("streamName")) course.setStreamName(p.get("streamName").asText());
+        if (p.has("streamName")) course.setStreamName(p.get("streamName").asText("").trim());
         if (p.has("totalIntake")) course.setTotalIntake(p.get("totalIntake").asInt());
-        if (p.has("minimumEligibility")) course.setMinimumEligibility(p.get("minimumEligibility").asText());
-        if (p.has("durationYears")) course.setDurationYears(BigDecimal.valueOf(p.get("durationYears").asDouble(4.0)));
-        if (p.has("degreeTitle")) course.setDegreeTitle(p.get("degreeTitle").asText());
+        if (p.has("minimumEligibility")) course.setMinimumEligibility(p.get("minimumEligibility").asText("").trim());
+        if (p.has("durationYears") && !p.get("durationYears").isNull()) {
+            course.setDurationYears(BigDecimal.valueOf(p.get("durationYears").asDouble()));
+        }
+        if (p.has("degreeTitle")) course.setDegreeTitle(p.get("degreeTitle").asText("").trim());
         if (p.has("details")) course.setDetails(p.get("details").toString());
         if (p.has("minimumRequirements")) course.setMinimumRequirements(p.get("minimumRequirements").toString());
         course.setIsActive(true);
@@ -136,24 +216,29 @@ public class ReviewAndPublishService {
     }
 
     private String publishUniCode(JsonNode p) {
-        String code = p.path("code").asText();
-        String courseName = p.path("courseName").asText("General Course");
-        String uniName = p.path("universityName").asText("General University");
+        String code = p.path("code").asText("").trim().toUpperCase();
+        String courseName = p.path("courseName").asText("").trim();
+        String uniName = p.path("universityName").asText("").trim();
 
         // Lookup or create Course
         Course course = courseRepository.findByNameIgnoreCase(courseName).orElseGet(() -> {
-            Course c = Course.builder()
-                    .code(code.replaceAll("[^0-9]", ""))
+            String cCode = code.replaceAll("[^0-9]", "");
+            if (cCode.isBlank() || courseRepository.findByCode(cCode).isPresent()) {
+                cCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+            }
+            return courseRepository.save(Course.builder()
+                    .code(cCode)
                     .name(courseName)
-                    .build();
-            if (c.getCode().isBlank()) c.setCode(UUID.randomUUID().toString().substring(0, 4));
-            return courseRepository.save(c);
+                    .build());
         });
 
         // Lookup or create University
         University university = universityRepository.findByNameIgnoreCase(uniName).orElseGet(() -> {
             String uCode = uniName.replaceAll("[^A-Za-z]", "").toUpperCase();
             if (uCode.length() > 6) uCode = uCode.substring(0, 6);
+            if (uCode.isBlank() || universityRepository.findByCode(uCode).isPresent()) {
+                uCode = (uCode.length() > 3 ? uCode.substring(0, 3) : "U") + UUID.randomUUID().toString().substring(0, 3).toUpperCase();
+            }
             return universityRepository.save(University.builder().code(uCode).name(uniName).build());
         });
 
@@ -169,17 +254,31 @@ public class ReviewAndPublishService {
     }
 
     private String publishCutoff(JsonNode p) {
-        String uniCodeStr = p.path("uniCode").asText("001A");
-        String courseName = p.path("courseName").asText("Course");
-        String uniName = p.path("universityName").asText("University");
-        String academicYear = p.path("academicYear").asText("2023/2024");
+        String uniCodeStr = p.path("uniCode").asText("").trim().toUpperCase();
+        String courseName = p.path("courseName").asText("").trim();
+        String uniName = p.path("universityName").asText("").trim();
+        String academicYear = p.path("academicYear").asText("").trim();
+        if (academicYear.isBlank() && p.hasNonNull("handbookAcademicYear")) {
+            academicYear = DocumentProcessingService.deriveCutoffAcademicYear(p.get("handbookAcademicYear").asText());
+        }
 
         // Ensure UniCode exists
         UniCode uniCode = uniCodeRepository.findByCode(uniCodeStr).orElseGet(() -> {
-            Course c = courseRepository.findByNameIgnoreCase(courseName).orElseGet(() ->
-                    courseRepository.save(Course.builder().code(uniCodeStr.replaceAll("[^0-9]", "")).name(courseName).build()));
-            University u = universityRepository.findByNameIgnoreCase(uniName).orElseGet(() ->
-                    universityRepository.save(University.builder().code(uniName.substring(0, Math.min(6, uniName.length())).toUpperCase()).name(uniName).build()));
+            Course c = courseRepository.findByNameIgnoreCase(courseName).orElseGet(() -> {
+                String cCode = uniCodeStr.replaceAll("[^0-9]", "");
+                if (cCode.isBlank() || courseRepository.findByCode(cCode).isPresent()) {
+                    cCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                }
+                return courseRepository.save(Course.builder().code(cCode).name(courseName).build());
+            });
+            University u = universityRepository.findByNameIgnoreCase(uniName).orElseGet(() -> {
+                String uCode = uniName.replaceAll("[^A-Za-z]", "").toUpperCase();
+                if (uCode.length() > 6) uCode = uCode.substring(0, 6);
+                if (uCode.isBlank() || universityRepository.findByCode(uCode).isPresent()) {
+                    uCode = (uCode.length() > 3 ? uCode.substring(0, 3) : "U") + UUID.randomUUID().toString().substring(0, 3).toUpperCase();
+                }
+                return universityRepository.save(University.builder().code(uCode).name(uniName).build());
+            });
             return uniCodeRepository.save(UniCode.builder()
                     .code(uniCodeStr)
                     .courseId(c.getId())
@@ -231,15 +330,25 @@ public class ReviewAndPublishService {
             if (p.has(districtKey)) {
                 String valStr = p.get(districtKey).asText();
                 if (valStr != null && valStr.toUpperCase().contains("NVQ")) {
-                    nvqList.add(districtKey);
+                    nvqList.add(districtKey.toLowerCase());
                 }
             }
         }
-        if (p.has("nvqDistricts") && p.get("nvqDistricts").isArray()) {
-            for (JsonNode n : p.get("nvqDistricts")) {
-                String dName = n.asText().toLowerCase().trim();
-                if (!dName.isEmpty() && !nvqList.contains(dName)) {
-                    nvqList.add(dName);
+        if (p.has("nvqDistricts")) {
+            JsonNode nvqNode = p.get("nvqDistricts");
+            if (nvqNode.isArray()) {
+                for (JsonNode n : nvqNode) {
+                    String dName = n.asText().toLowerCase().trim();
+                    if (!dName.isEmpty() && !nvqList.contains(dName)) {
+                        nvqList.add(dName);
+                    }
+                }
+            } else if (nvqNode.isTextual()) {
+                for (String part : nvqNode.asText().split(",")) {
+                    String dName = part.toLowerCase().trim();
+                    if (!dName.isEmpty() && !nvqList.contains(dName)) {
+                        nvqList.add(dName);
+                    }
                 }
             }
         }
@@ -276,9 +385,9 @@ public class ReviewAndPublishService {
     }
 
     private String publishDistrict(JsonNode p) {
-        String code = p.path("code").asText().toUpperCase();
-        String name = p.path("name").asText();
-        String province = p.path("province").asText("General");
+        String code = p.path("code").asText("").trim().toUpperCase();
+        String name = p.path("name").asText("").trim();
+        String province = p.path("province").asText("").trim();
         boolean hasDisadvantage = p.path("hasDisadvantage").asBoolean(false);
 
         District district = districtRepository.findByCode(code).orElse(new District());
@@ -292,24 +401,27 @@ public class ReviewAndPublishService {
     }
 
     private String publishArtsBasket(JsonNode p) {
-        int basketNumber = p.path("basketNumber").asInt(1);
-        String basketName = p.path("basketName").asText("Arts Basket " + basketNumber);
+        int basketNumber = p.path("basketNumber").asInt(0);
+        String basketName = p.path("basketName").asText("").trim();
+        if (basketName.isBlank() && basketNumber > 0) {
+            basketName = "Basket " + basketNumber;
+        }
 
         ArtsBasket basket = artsBasketRepository.findByBasketNumber(basketNumber).orElse(new ArtsBasket());
         basket.setBasketNumber(basketNumber);
         basket.setBasketName(basketName);
         basket.setMinSubjectsRequired(p.path("minSubjectsRequired").asInt(1));
         basket.setMaxSubjectsAllowed(p.path("maxSubjectsAllowed").asInt(3));
-        if (p.has("rulesDescription")) basket.setRulesDescription(p.get("rulesDescription").asText());
+        if (p.has("rulesDescription")) basket.setRulesDescription(p.get("rulesDescription").asText("").trim());
 
         ArtsBasket saved = artsBasketRepository.save(basket);
 
         // Process subjects if present
         if (p.has("subjects") && p.get("subjects").isArray()) {
             for (JsonNode subNode : p.get("subjects")) {
-                String subName = subNode.isTextual() ? subNode.asText() : subNode.path("name").asText();
-                String subCode = subNode.isObject() && subNode.has("code") ? subNode.get("code").asText() :
-                        subName.substring(0, Math.min(4, subName.length())).toUpperCase();
+                String subName = subNode.isTextual() ? subNode.asText().trim() : subNode.path("name").asText("").trim();
+                String subCode = subNode.isObject() && subNode.has("code") ? subNode.get("code").asText().trim() :
+                        (subName.length() > 4 ? subName.substring(0, 4).toUpperCase() : subName.toUpperCase());
 
                 Subject sub = subjectRepository.findByNameIgnoreCase(subName).orElseGet(() ->
                         subjectRepository.save(Subject.builder().code(subCode).name(subName).basketCategory("ARTS").build()));
@@ -369,13 +481,13 @@ public class ReviewAndPublishService {
     }
 
     private String publishAptitude(JsonNode p) {
-        String courseOfStudy = p.has("courseOfStudy") ? p.get("courseOfStudy").asText() :
-                p.has("courseName") ? p.get("courseName").asText() : "Course of Study";
-        String uniName = p.has("universityName") ? p.get("universityName").asText() :
-                p.has("university") ? p.get("university").asText() : "Respective University";
-        String uniCode = p.has("uniCode") ? p.get("uniCode").asText() :
-                p.has("code") ? p.get("code").asText() : "";
-        Course course = courseRepository.findByNameIgnoreCase(courseOfStudy).orElse(null);
+        String courseOfStudy = p.hasNonNull("courseOfStudy") ? p.get("courseOfStudy").asText().trim() :
+                p.hasNonNull("courseName") ? p.get("courseName").asText().trim() : "";
+        String uniName = p.hasNonNull("universityName") ? p.get("universityName").asText().trim() :
+                p.hasNonNull("university") ? p.get("university").asText().trim() : "";
+        String uniCode = p.hasNonNull("uniCode") ? p.get("uniCode").asText().trim().toUpperCase() :
+                p.hasNonNull("code") ? p.get("code").asText().trim().toUpperCase() : "";
+        Course course = !courseOfStudy.isBlank() ? courseRepository.findByNameIgnoreCase(courseOfStudy).orElse(null) : null;
 
         AptitudeRequirement req = AptitudeRequirement.builder()
                 .courseId(course != null ? course.getId() : null)
@@ -383,7 +495,7 @@ public class ReviewAndPublishService {
                 .courseOfStudy(courseOfStudy)
                 .universityName(uniName)
                 .uniCode(uniCode)
-                .conductedBy(p.path("conductedBy").asText(uniName))
+                .conductedBy(p.path("conductedBy").asText(uniName).trim())
                 .build();
 
         AptitudeRequirement saved = aptitudeRequirementRepository.save(req);
@@ -443,11 +555,16 @@ public class ReviewAndPublishService {
     }
 
     private String publishStreamSubject(JsonNode p) {
-        String streamName = p.path("streamName").asText("Stream");
-        String code = streamName.replaceAll("[^A-Za-z]", "_").toUpperCase();
+        String streamName = p.path("streamName").asText("").trim();
+        if (streamName.isBlank()) {
+            throw new IllegalArgumentException("Stream name cannot be blank.");
+        }
+        String rawCode = streamName.replaceAll("[^A-Za-z0-9]", "_").toUpperCase();
+        final String streamCode = rawCode.isBlank() ? "STREAM_" + UUID.randomUUID().toString().substring(0, 4).toUpperCase() : rawCode;
 
-        Stream stream = streamRepository.findByCode(code).orElseGet(() ->
-                streamRepository.save(Stream.builder().code(code).name(streamName).build()));
+        Stream stream = streamRepository.findByCode(streamCode)
+                .or(() -> streamRepository.findByNameIgnoreCase(streamName))
+                .orElseGet(() -> streamRepository.save(Stream.builder().code(streamCode).name(streamName).build()));
 
         return stream.getId().toString();
     }

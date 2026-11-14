@@ -1,3 +1,4 @@
+
 services:
 
   backend:
@@ -15,10 +16,14 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-lite-latest}
       SUPABASE_URL: ${SUPABASE_URL:-https://lygsnlknbkochocevupx.supabase.co}
       SUPABASE_BUCKET: ${SUPABASE_BUCKET:-handbooks}
       SUPABASE_KEY: ${SUPABASE_KEY:-}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - pathwise-uploads:/app/uploads
+      - pathwise-uploads:/tmp/uploads/handbooks
 
   frontend:
     build:
@@ -32,3 +37,7 @@ services:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080/api}
     depends_on:
       - backend
+
+volumes:
+  pathwise-uploads:
+    driver: local

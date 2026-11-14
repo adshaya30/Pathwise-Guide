@@ -91,6 +91,7 @@ public class DocumentController {
     @PostMapping("/{id}/reprocess")
     public ResponseEntity<ExtractionJob> reprocessDocument(@PathVariable UUID id) {
         ExtractionJob job = documentProcessingService.reprocessDocument(id);
+        documentProcessingService.processDocumentAsync(id, job.getId());
         return ResponseEntity.ok(job);
     }
 

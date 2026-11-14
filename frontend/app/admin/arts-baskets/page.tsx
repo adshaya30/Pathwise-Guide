@@ -302,7 +302,7 @@ export default function ArtsBasketsPage() {
               required
               value={basketFormData.basketName || ''}
               onChange={(e) => setBasketFormData({ ...basketFormData, basketName: e.target.value })}
-              placeholder="e.g. Social Sciences, Humanities"
+              placeholder="Enter Basket Name"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
             />
           </div>

@@ -7,6 +7,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -116,6 +118,40 @@ public class Cutoff {
 
     @Column(name = "nvq_districts", columnDefinition = "TEXT")
     private String nvqDistricts;
+
+    public void addNvqDistrict(String district) {
+        if (district == null || district.isBlank()) return;
+        String d = district.trim().toLowerCase();
+        Set<String> set = new LinkedHashSet<>();
+        if (this.nvqDistricts != null && !this.nvqDistricts.isBlank()) {
+            for (String s : this.nvqDistricts.split(",")) {
+                if (!s.isBlank()) set.add(s.trim().toLowerCase());
+            }
+        }
+        set.add(d);
+        this.nvqDistricts = String.join(",", set);
+    }
+
+    public void removeNvqDistrict(String district) {
+        if (district == null || district.isBlank() || this.nvqDistricts == null) return;
+        String d = district.trim().toLowerCase();
+        Set<String> set = new LinkedHashSet<>();
+        for (String s : this.nvqDistricts.split(",")) {
+            if (!s.isBlank() && !s.trim().equalsIgnoreCase(d)) {
+                set.add(s.trim().toLowerCase());
+            }
+        }
+        this.nvqDistricts = set.isEmpty() ? null : String.join(",", set);
+    }
+
+    public boolean isDistrictNvq(String district) {
+        if (district == null || district.isBlank() || this.nvqDistricts == null) return false;
+        String d = district.trim().toLowerCase();
+        for (String s : this.nvqDistricts.split(",")) {
+            if (s.trim().equalsIgnoreCase(d)) return true;
+        }
+        return false;
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

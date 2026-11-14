@@ -551,7 +551,7 @@ export default function SpecialProvisionsPage() {
             <textarea
               value={importRawText}
               onChange={(e) => setImportRawText(e.target.value)}
-              placeholder="Paste table lines directly (e.g. from PDF, Excel, TSV, CSV, or handbook table)..."
+              placeholder="Paste table lines directly from PDF, Excel, TSV, CSV, or handbook table..."
               rows={8}
               className="w-full p-3 font-mono text-xs bg-gray-50 dark:bg-zinc-950 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               spellCheck={false}
@@ -635,7 +635,7 @@ export default function SpecialProvisionsPage() {
               required
               value={formData.universityName || ''}
               onChange={(e) => setFormData({ ...formData, universityName: e.target.value })}
-              placeholder="e.g. University of Colombo"
+              placeholder="Enter University Name"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
@@ -649,7 +649,7 @@ export default function SpecialProvisionsPage() {
               required
               value={formData.courseOfStudy || ''}
               onChange={(e) => setFormData({ ...formData, courseOfStudy: e.target.value })}
-              placeholder="e.g. Arts, Biological Science, Physical Science"
+              placeholder="Enter Course of Study"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
@@ -663,7 +663,7 @@ export default function SpecialProvisionsPage() {
               required
               value={formData.uniCode || ''}
               onChange={(e) => setFormData({ ...formData, uniCode: e.target.value.toUpperCase() })}
-              placeholder="e.g. 019A"
+              placeholder="Enter Uni-Code"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>

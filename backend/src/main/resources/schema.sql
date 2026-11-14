@@ -262,6 +262,21 @@ ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS test_description;
 ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS passing_criteria;
 ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS application_deadline;
 
+-- G.C.E. (Ordinary Level) Examination Requirements table
+CREATE TABLE IF NOT EXISTS ol_requirements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    uni_codes VARCHAR(255) NOT NULL,
+    course_of_study VARCHAR(255) NOT NULL,
+    sinhala_language VARCHAR(50) DEFAULT '',
+    english VARCHAR(50) DEFAULT '',
+    mathematics VARCHAR(50) DEFAULT '',
+    science VARCHAR(50) DEFAULT '',
+    tamil_language VARCHAR(50) DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Seed base 25 Sri Lankan Districts
 INSERT INTO districts (code, name, province, has_disadvantage) VALUES
 ('COLOMBO', 'Colombo', 'Western', false),

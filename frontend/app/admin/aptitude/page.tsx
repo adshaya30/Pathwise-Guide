@@ -267,7 +267,7 @@ export default function AptitudeRequirementsPage() {
               required
               value={formData.courseOfStudy || ''}
               onChange={(e) => setFormData({ ...formData, courseOfStudy: e.target.value })}
-              placeholder="e.g. ARCHITECTURE, DESIGN, ARTS (SP) - MASS MEDIA"
+              placeholder="Enter Course of Study"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
@@ -281,7 +281,7 @@ export default function AptitudeRequirementsPage() {
               required
               value={formData.universityName || ''}
               onChange={(e) => setFormData({ ...formData, universityName: e.target.value })}
-              placeholder="e.g. UNIVERSITY OF MORATUWA, SRIPALEE CAMPUS"
+              placeholder="Enter University / Campus / Institute"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
@@ -295,7 +295,7 @@ export default function AptitudeRequirementsPage() {
               required
               value={formData.uniCode || ''}
               onChange={(e) => setFormData({ ...formData, uniCode: e.target.value.toUpperCase() })}
-              placeholder="e.g. 020S, 023G, 068C"
+              placeholder="Enter Uni-Code"
               className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
