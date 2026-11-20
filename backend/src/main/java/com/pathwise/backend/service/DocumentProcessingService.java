@@ -166,7 +166,7 @@ public class DocumentProcessingService {
             documentRepository.save(doc);
         }
 
-        int totalExtracted = 0;
+        int totalExtracted = (int) extractedRecordRepository.countByDocumentId(doc.getId());
 
         try (PDDocument pdDoc = Loader.loadPDF(pdfFile)) {
             int numPages = pdDoc.getNumberOfPages();
@@ -192,7 +192,39 @@ public class DocumentProcessingService {
                 }
 
                 final int pageNum = p;
+
+                // Incremental Check: Only reprocess missing data, skip already processed pages!
+                Optional<DocumentPage> existingPageOpt = documentPageRepository.findByDocumentIdAndPageNumber(doc.getId(), pageNum);
+                boolean isAlreadyProcessed = existingPageOpt.isPresent()
+                        && "PROCESSED".equalsIgnoreCase(existingPageOpt.get().getStatus())
+                        && existingPageOpt.get().getRawText() != null
+                        && !existingPageOpt.get().getRawText().isBlank();
+
+                if (isAlreadyProcessed) {
+                    DocumentPage existingPage = existingPageOpt.get();
+                    log.info("Page {} of document {} is already processed (type: {}). Skipping re-extraction.",
+                            pageNum, doc.getId(), existingPage.getPageType());
+
+                    int progress = 5 + (int) (((double) pageNum / numPages) * 90);
+                    job.setProgressPercent(Math.min(95, progress));
+                    job.setCurrentStep(String.format("Skipping already processed page %d of %d (%s)", pageNum, numPages, existingPage.getPageType()));
+                    job.setTotalItemsExtracted(totalExtracted);
+                    extractionJobRepository.save(job);
+
+                    doc.setProcessedPages(pageNum);
+                    documentRepository.save(doc);
+                    continue;
+                }
+
+                // If missing or failed, process only this page!
                 try {
+                    // If retrying a failed page, remove any stale pending records for this specific page
+                    try {
+                        extractedRecordRepository.deleteByDocumentIdAndPageNumberAndStatus(doc.getId(), pageNum, "PENDING");
+                    } catch (Exception ex) {
+                        log.warn("Could not clear pending records for doc {} page {}: {}", doc.getId(), pageNum, ex.getMessage());
+                    }
+
                     stripper.setStartPage(pageNum);
                     stripper.setEndPage(pageNum);
                     String pageText = stripper.getText(pdDoc);
@@ -208,11 +240,10 @@ public class DocumentProcessingService {
                     }
 
                     // Save or update DocumentPage
-                    DocumentPage docPage = documentPageRepository.findByDocumentIdAndPageNumber(doc.getId(), pageNum)
-                            .orElse(DocumentPage.builder()
-                                    .documentId(doc.getId())
-                                    .pageNumber(pageNum)
-                                    .build());
+                    DocumentPage docPage = existingPageOpt.orElse(DocumentPage.builder()
+                            .documentId(doc.getId())
+                            .pageNumber(pageNum)
+                            .build());
 
                     docPage.setRawText(pageText);
 
@@ -274,7 +305,7 @@ public class DocumentProcessingService {
                     // Update progress
                     int progress = 5 + (int) (((double) pageNum / numPages) * 90);
                     job.setProgressPercent(Math.min(95, progress));
-                    job.setCurrentStep(String.format("Processed page %d of %d (%s)", pageNum, numPages, result.pageType));
+                    job.setCurrentStep(String.format("Processed missing page %d of %d (%s)", pageNum, numPages, result.pageType));
                     job.setTotalItemsExtracted(totalExtracted);
                     extractionJobRepository.save(job);
 
@@ -308,12 +339,13 @@ public class DocumentProcessingService {
             // Completed successfully
             job.setStatus("COMPLETED");
             job.setProgressPercent(100);
-            job.setCurrentStep(String.format("Completed extraction: %d items found", totalExtracted));
+            job.setCurrentStep(String.format("Completed extraction: %d total items staged", totalExtracted));
             job.setCompletedAt(OffsetDateTime.now());
             job.setTotalItemsExtracted(totalExtracted);
             extractionJobRepository.save(job);
 
             doc.setStatus("COMPLETED");
+            doc.setProcessedPages(numPages);
             documentRepository.save(doc);
             log.info("Async extraction finished successfully for document {}. Total items: {}", documentId, totalExtracted);
 
@@ -364,24 +396,25 @@ public class DocumentProcessingService {
             }
         }
 
-        // 2. Clean up previous staging records in PENDING status for this document so we don't accumulate duplicates
-        try {
-            extractedRecordRepository.deleteByDocumentIdAndStatus(doc.getId(), "PENDING");
-        } catch (Exception ex) {
-            log.warn("Could not clear pending extracted records for doc {}: {}", doc.getId(), ex.getMessage());
-        }
+        // 2. Incremental Reprocessing:
+        // Do NOT delete all pending records or reset processedPages to 0!
+        // We only reprocess missing or failed data ("only reprocess missing data not at all").
+        long processedCount = documentPageRepository.countByDocumentIdAndStatus(doc.getId(), "PROCESSED");
+        int totalPages = doc.getTotalPages() != null && doc.getTotalPages() > 0 ? doc.getTotalPages() : 210;
+        int progress = (int) (((double) processedCount / totalPages) * 90) + 5;
+        if (progress > 95) progress = 95;
 
-        // 3. Immediately update doc state so frontend UI reflects reprocessing state
+        // 3. Update doc state so frontend UI reflects reprocessing state with current progress
         doc.setStatus("PROCESSING");
-        doc.setProcessedPages(0);
+        doc.setProcessedPages((int) processedCount);
         doc.setErrorMessage(null);
         documentRepository.save(doc);
 
         ExtractionJob job = ExtractionJob.builder()
                 .documentId(doc.getId())
                 .status("QUEUED")
-                .progressPercent(0)
-                .currentStep("Queued for reprocessing")
+                .progressPercent(progress)
+                .currentStep(String.format("Resuming incremental extraction (already processed %d of %d pages)", processedCount, totalPages))
                 .startedAt(OffsetDateTime.now())
                 .build();
 

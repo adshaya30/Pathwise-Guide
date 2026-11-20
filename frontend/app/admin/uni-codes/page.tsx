@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   getUniCodes,
   createUniCode,
@@ -20,6 +20,7 @@ export default function UniCodesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [aptitudeOnlyFilter, setAptitudeOnlyFilter] = useState(false);
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
 
   // Live status for direct inline cell saving: [uniCodeId-field]: 'saving' | 'saved' | 'error'
   const [cellStatus, setCellStatus] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
@@ -46,7 +47,12 @@ export default function UniCodesPage() {
         getCourses(),
         getUniversities(),
       ]);
-      setUniCodes(uList);
+      const sortedUniCodes = [...uList].sort((a, b) => {
+        const comp = (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' });
+        if (comp !== 0) return comp;
+        return (a.courseName || '').localeCompare(b.courseName || '');
+      });
+      setUniCodes(sortedUniCodes);
       setCourses(cList);
       setUniversities(unList);
     } catch (err: any) {
@@ -187,17 +193,28 @@ export default function UniCodesPage() {
     }
   };
 
-  const filtered = uniCodes.filter((u) => {
-    if (aptitudeOnlyFilter && !u.aptitudeTest) return false;
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (u.code || '').toLowerCase().includes(q) ||
-      (u.courseName || '').toLowerCase().includes(q) ||
-      (u.universityName || '').toLowerCase().includes(q) ||
-      (u.degreeProgram || '').toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    return uniCodes
+      .filter((u) => {
+        if (aptitudeOnlyFilter && !u.aptitudeTest) return false;
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+          (u.code || '').toLowerCase().includes(q) ||
+          (u.courseName || '').toLowerCase().includes(q) ||
+          (u.universityName || '').toLowerCase().includes(q) ||
+          (u.degreeProgram || '').toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const codeA = a.code || '';
+        const codeB = b.code || '';
+        const comp = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        const direction = sortAsc ? 1 : -1;
+        if (comp !== 0) return comp * direction;
+        return (a.courseName || '').localeCompare(b.courseName || '') * direction;
+      });
+  }, [uniCodes, aptitudeOnlyFilter, searchQuery, sortAsc]);
 
   return (
     <div className="space-y-6">
@@ -230,6 +247,10 @@ export default function UniCodesPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+            ✓ Ordered by Uni-Code
+          </span>
+
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
             ⚡ Direct Edit Enabled
           </span>
@@ -248,7 +269,18 @@ export default function UniCodesPage() {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-gray-50/75 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase">
-                <th className="px-4 py-3.5 w-28">Uni-Code</th>
+                <th
+                  onClick={() => setSortAsc(!sortAsc)}
+                  className="px-4 py-3.5 w-32 cursor-pointer select-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  title="Click to toggle Uni-Code sort order"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Uni-Code</span>
+                    <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                      {sortAsc ? '▲ ASC' : '▼ DESC'}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-4 py-3.5">Course Name</th>
                 <th className="px-4 py-3.5">University Name</th>
                 <th className="px-4 py-3.5 w-20 text-center">Intake</th>

@@ -20,10 +20,16 @@ public interface ExtractedRecordRepository extends JpaRepository<ExtractedRecord
     List<ExtractedRecord> findByModuleTypeInAndStatusOrderByCreatedAtDesc(List<String> moduleTypes, String status);
     List<ExtractedRecord> findByDocumentIdOrderByPageNumberAsc(UUID documentId);
     long countByStatus(String status);
+    long countByDocumentId(UUID documentId);
 
     @Modifying
     @Transactional
     @Query("DELETE FROM ExtractedRecord r WHERE r.documentId = :documentId AND r.status = :status")
     void deleteByDocumentIdAndStatus(UUID documentId, String status);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM ExtractedRecord r WHERE r.documentId = :documentId AND r.pageNumber = :pageNumber AND r.status = :status")
+    void deleteByDocumentIdAndPageNumberAndStatus(UUID documentId, Integer pageNumber, String status);
 }
 

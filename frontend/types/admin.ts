@@ -89,6 +89,11 @@ export interface BulkApproveResponse {
   errors?: string[];
 }
 
+export interface BulkDeleteResponse {
+  totalDeleted: number;
+  message: string;
+}
+
 export interface University {
   id: string;
   code: string;

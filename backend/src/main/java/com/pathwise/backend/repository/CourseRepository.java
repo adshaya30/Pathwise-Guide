@@ -13,6 +13,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     Optional<Course> findByCode(String code);
     Optional<Course> findByNameIgnoreCase(String name);
     List<Course> findByIsActiveTrue();
+    List<Course> findAllByOrderByCodeAsc();
+    List<Course> findByIsActiveTrueOrderByCodeAsc();
     List<Course> findByStreamId(UUID streamId);
 }
 

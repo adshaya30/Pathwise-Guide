@@ -6,6 +6,7 @@ import {
   ExtractionProgress,
   ExtractedRecord,
   BulkApproveResponse,
+  BulkDeleteResponse,
   Course,
   UniCode,
   Cutoff,
@@ -153,6 +154,23 @@ export async function bulkApproveRecords(
   return fetchJson<BulkApproveResponse>('/admin/extracted-records/bulk-approve', {
     method: 'POST',
     body: JSON.stringify({ recordIds, moduleType, reviewedBy }),
+  });
+}
+
+export async function deleteExtractedRecord(id: string): Promise<void> {
+  await fetchJson<void>(`/admin/extracted-records/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function bulkDeleteRecords(
+  recordIds?: string[],
+  status?: string,
+  moduleType?: string
+): Promise<BulkDeleteResponse> {
+  return fetchJson<BulkDeleteResponse>('/admin/extracted-records/bulk-delete', {
+    method: 'POST',
+    body: JSON.stringify({ recordIds, status, moduleType }),
   });
 }
 

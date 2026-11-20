@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pathwise.backend.dto.BulkApproveRequest;
 import com.pathwise.backend.dto.BulkApproveResponse;
+import com.pathwise.backend.dto.BulkDeleteRequest;
+import com.pathwise.backend.dto.BulkDeleteResponse;
 import com.pathwise.backend.dto.RecordRejectRequest;
 import com.pathwise.backend.dto.RecordReviewRequest;
 import com.pathwise.backend.entity.*;
@@ -139,6 +141,45 @@ public class ReviewAndPublishService {
                 .approvedCount(approvedCount)
                 .failedCount(failedCount)
                 .errors(errors)
+                .build();
+    }
+
+    @Transactional
+    public void deleteRecord(UUID id) {
+        if (!extractedRecordRepository.existsById(id)) {
+            throw new IllegalArgumentException("Record not found with ID: " + id);
+        }
+        extractedRecordRepository.deleteById(id);
+        log.info("Deleted extracted record with ID: {}", id);
+    }
+
+    @Transactional
+    public BulkDeleteResponse bulkDelete(BulkDeleteRequest request) {
+        List<ExtractedRecord> targets;
+        if (request != null && request.getRecordIds() != null && !request.getRecordIds().isEmpty()) {
+            targets = extractedRecordRepository.findAllById(request.getRecordIds());
+        } else if (request != null && request.getModuleType() != null && !request.getModuleType().isBlank()
+                && request.getStatus() != null && !request.getStatus().isBlank()) {
+            if ("ALL".equalsIgnoreCase(request.getStatus())) {
+                targets = extractedRecordRepository.findByModuleTypeOrderByCreatedAtDesc(request.getModuleType());
+            } else {
+                targets = extractedRecordRepository.findByModuleTypeAndStatusOrderByCreatedAtDesc(request.getModuleType(), request.getStatus().toUpperCase());
+            }
+        } else if (request != null && request.getModuleType() != null && !request.getModuleType().isBlank()) {
+            targets = extractedRecordRepository.findByModuleTypeOrderByCreatedAtDesc(request.getModuleType());
+        } else if (request != null && request.getStatus() != null && !request.getStatus().isBlank() && !"ALL".equalsIgnoreCase(request.getStatus())) {
+            targets = extractedRecordRepository.findByStatusOrderByCreatedAtDesc(request.getStatus().toUpperCase());
+        } else {
+            targets = extractedRecordRepository.findAll();
+        }
+
+        int count = targets.size();
+        extractedRecordRepository.deleteAll(targets);
+        log.info("Bulk delete completed: removed {} extracted records from staging", count);
+
+        return BulkDeleteResponse.builder()
+                .totalDeleted(count)
+                .message(String.format("Successfully deleted %d record(s) from staging.", count))
                 .build();
     }
 

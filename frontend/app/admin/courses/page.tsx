@@ -1,15 +1,22 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getCourses, createCourse, updateCourse, deleteCourse } from '@/services/adminApi';
 import { Course, CourseOffering } from '@/types/admin';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Modal } from '@/components/admin/Modal';
 
+const compareCourseCodes = (a?: string, b?: string) => {
+  const codeA = a || '';
+  const codeB = b || '';
+  return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+};
+
 export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
 
   // Live status for direct inline cell saving: [courseId-field]: 'saving' | 'saved' | 'error'
   const [cellStatus, setCellStatus] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
@@ -32,7 +39,12 @@ export default function CoursesPage() {
     try {
       setIsLoading(true);
       const data = await getCourses();
-      setCourses(data);
+      const sorted = [...data].sort((a, b) => {
+        const comp = compareCourseCodes(a.code, b.code);
+        if (comp !== 0) return comp;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      setCourses(sorted);
     } catch (err: any) {
       alert('Failed to load courses: ' + err.message);
     } finally {
@@ -134,16 +146,25 @@ export default function CoursesPage() {
     }
   };
 
-  const filtered = courses.filter((c) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (c.name || '').toLowerCase().includes(q) ||
-      (c.code || '').toLowerCase().includes(q) ||
-      (c.streamName || '').toLowerCase().includes(q) ||
-      (c.degreeTitle || '').toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    return courses
+      .filter((c) => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+          (c.name || '').toLowerCase().includes(q) ||
+          (c.code || '').toLowerCase().includes(q) ||
+          (c.streamName || '').toLowerCase().includes(q) ||
+          (c.degreeTitle || '').toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const comp = compareCourseCodes(a.code, b.code);
+        const direction = sortAsc ? 1 : -1;
+        if (comp !== 0) return comp * direction;
+        return (a.name || '').localeCompare(b.name || '') * direction;
+      });
+  }, [courses, searchQuery, sortAsc]);
 
   return (
     <div className="space-y-6">
@@ -162,6 +183,10 @@ export default function CoursesPage() {
         />
 
         <div className="flex items-center gap-3">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+            ✓ Ordered by Course Code
+          </span>
+
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
             ⚡ Direct Edit Enabled
           </span>
@@ -180,7 +205,18 @@ export default function CoursesPage() {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-gray-50/75 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase">
-                <th className="px-4 py-3.5 w-32">Course Code</th>
+                <th
+                  onClick={() => setSortAsc(!sortAsc)}
+                  className="px-4 py-3.5 w-36 cursor-pointer select-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  title="Click to toggle Course Code sort order"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Course Code</span>
+                    <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                      {sortAsc ? '▲ ASC' : '▼ DESC'}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-4 py-3.5">Course Name</th>
                 <th className="px-4 py-3.5 w-48">Stream</th>
                 <th className="px-4 py-3.5 w-24 text-center">Intake</th>

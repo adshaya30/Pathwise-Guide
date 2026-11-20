@@ -12,5 +12,7 @@ import java.util.UUID;
 public interface DocumentPageRepository extends JpaRepository<DocumentPage, UUID> {
     List<DocumentPage> findByDocumentIdOrderByPageNumberAsc(UUID documentId);
     Optional<DocumentPage> findByDocumentIdAndPageNumber(UUID documentId, Integer pageNumber);
+    long countByDocumentIdAndStatus(UUID documentId, String status);
+    List<DocumentPage> findByDocumentIdAndStatus(UUID documentId, String status);
 }
 

@@ -2,6 +2,8 @@ package com.pathwise.backend.controller.admin;
 
 import com.pathwise.backend.dto.BulkApproveRequest;
 import com.pathwise.backend.dto.BulkApproveResponse;
+import com.pathwise.backend.dto.BulkDeleteRequest;
+import com.pathwise.backend.dto.BulkDeleteResponse;
 import com.pathwise.backend.dto.RecordRejectRequest;
 import com.pathwise.backend.dto.RecordReviewRequest;
 import com.pathwise.backend.entity.ExtractedRecord;
@@ -83,6 +85,28 @@ public class ExtractedRecordController {
             @RequestBody(required = false) RecordRejectRequest request) {
         ExtractedRecord rejected = reviewAndPublishService.rejectRecord(id, request);
         return ResponseEntity.ok(rejected);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRecord(@PathVariable UUID id) {
+        reviewAndPublishService.deleteRecord(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/bulk-delete")
+    public ResponseEntity<BulkDeleteResponse> bulkDelete(
+            @RequestBody(required = false) BulkDeleteRequest request) {
+        BulkDeleteResponse response = reviewAndPublishService.bulkDelete(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<BulkDeleteResponse> deleteAll(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String moduleType) {
+        BulkDeleteResponse response = reviewAndPublishService.bulkDelete(
+                BulkDeleteRequest.builder().status(status).moduleType(moduleType).build());
+        return ResponseEntity.ok(response);
     }
 }
 

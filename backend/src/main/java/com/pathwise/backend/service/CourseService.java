@@ -16,7 +16,24 @@ public class CourseService {
     private final CourseRepository courseRepository;
 
     public List<Course> getAllCourses() {
-        return courseRepository.findAll();
+        return courseRepository.findAllByOrderByCodeAsc().stream()
+                .sorted((a, b) -> compareCourseCodes(a.getCode(), b.getCode()))
+                .toList();
+    }
+
+    public static int compareCourseCodes(String a, String b) {
+        if (a == null) a = "";
+        if (b == null) b = "";
+        String numA = a.replaceAll("[^0-9]", "");
+        String numB = b.replaceAll("[^0-9]", "");
+        if (!numA.isBlank() && !numB.isBlank()) {
+            try {
+                int na = Integer.parseInt(numA);
+                int nb = Integer.parseInt(numB);
+                if (na != nb) return Integer.compare(na, nb);
+            } catch (NumberFormatException ignored) {}
+        }
+        return a.compareToIgnoreCase(b);
     }
 
     public Course getCourseById(UUID id) {
