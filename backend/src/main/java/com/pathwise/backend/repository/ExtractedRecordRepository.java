@@ -16,6 +16,8 @@ public interface ExtractedRecordRepository extends JpaRepository<ExtractedRecord
     List<ExtractedRecord> findByStatusOrderByCreatedAtDesc(String status);
     List<ExtractedRecord> findByModuleTypeOrderByCreatedAtDesc(String moduleType);
     List<ExtractedRecord> findByModuleTypeAndStatusOrderByCreatedAtDesc(String moduleType, String status);
+    List<ExtractedRecord> findByModuleTypeInOrderByCreatedAtDesc(List<String> moduleTypes);
+    List<ExtractedRecord> findByModuleTypeInAndStatusOrderByCreatedAtDesc(List<String> moduleTypes, String status);
     List<ExtractedRecord> findByDocumentIdOrderByPageNumberAsc(UUID documentId);
     long countByStatus(String status);
 

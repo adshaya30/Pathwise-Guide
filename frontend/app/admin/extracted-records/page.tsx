@@ -287,8 +287,8 @@ export default function ExtractedRecordsReviewPage() {
           >
             <option value="">All Academic Modules</option>
             <option value="CUTOFF">Cutoff (Z-Score)</option>
-            <option value="COURSE">Course Details</option>
-            <option value="UNI_CODE">University Courses</option>
+            <option value="COURSE">Courses (Annex A Intake)</option>
+            <option value="UNIVERSITY_COURSE">University Courses</option>
             <option value="OL_REQUIREMENT">O/L Requirements</option>
             <option value="ARTS_BASKET">Arts Basket</option>
             <option value="SPECIAL_PROVISION">Special Provisions</option>
@@ -412,7 +412,9 @@ export default function ExtractedRecordsReviewPage() {
                       </td>
 
                       <td className="px-4 py-3.5 font-bold text-xs uppercase text-indigo-700 dark:text-indigo-400">
-                        {rec.moduleType}
+                        {rec.moduleType === 'UNI_CODE' || rec.moduleType === 'UNIVERSITY_COURSE'
+                          ? 'UNIVERSITY COURSE'
+                          : rec.moduleType}
                       </td>
 
                       <td className="px-4 py-3.5 text-xs text-gray-500 font-mono">
@@ -474,7 +476,11 @@ export default function ExtractedRecordsReviewPage() {
       <Modal
         isOpen={activeRecord !== null}
         onClose={() => setActiveRecord(null)}
-        title={`Review Staged Extraction: ${activeRecord?.moduleType}`}
+        title={`Review Staged Extraction: ${
+          activeRecord?.moduleType === 'UNI_CODE' || activeRecord?.moduleType === 'UNIVERSITY_COURSE'
+            ? 'University Course'
+            : activeRecord?.moduleType
+        }`}
         maxWidth="4xl"
       >
         <div className="space-y-4">
@@ -492,7 +498,11 @@ export default function ExtractedRecordsReviewPage() {
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
               <span className="font-semibold text-gray-500">Target Module:</span>{' '}
-              <span className="font-bold text-indigo-600">{activeRecord?.moduleType}</span>
+              <span className="font-bold text-indigo-600">
+                {activeRecord?.moduleType === 'UNI_CODE' || activeRecord?.moduleType === 'UNIVERSITY_COURSE'
+                  ? 'University Course'
+                  : activeRecord?.moduleType}
+              </span>
             </div>
             <div>
               <span className="font-semibold text-gray-500">Current Status:</span>{' '}

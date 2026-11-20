@@ -55,6 +55,17 @@ public class AdminStreamController {
         return ResponseEntity.ok(streamService.createSubject(subject));
     }
 
+    @PutMapping("/subjects/{id}")
+    public ResponseEntity<Subject> updateSubject(@PathVariable UUID id, @RequestBody Subject subject) {
+        return ResponseEntity.ok(streamService.updateSubject(id, subject));
+    }
+
+    @DeleteMapping("/subjects/{id}")
+    public ResponseEntity<Void> deleteSubject(@PathVariable UUID id) {
+        streamService.deleteSubject(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{id}/subjects")
     public ResponseEntity<List<StreamSubject>> getStreamSubjects(@PathVariable UUID id) {
         return ResponseEntity.ok(streamService.getSubjectsForStream(id));

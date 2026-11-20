@@ -31,6 +31,43 @@ export default function OlRequirementsPage() {
     notes: '',
   });
 
+  // Live status for direct inline cell saving: [reqId-field]: 'saving' | 'saved' | 'error'
+  const [cellStatus, setCellStatus] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
+
+  // Direct edit: on input change in table
+  const handleCellChange = (reqId: string, field: keyof OlRequirement, value: any) => {
+    setRequirements((prev) =>
+      prev.map((r) => (r.id === reqId ? { ...r, [field]: value } : r))
+    );
+  };
+
+  // Direct edit: on blur or Enter save to backend
+  const handleCellBlur = async (req: OlRequirement, field: keyof OlRequirement, value: any) => {
+    const trimmed = typeof value === 'string' ? value.trim() : value;
+    const cellKey = `${req.id}-${String(field)}`;
+    setCellStatus((prev) => ({ ...prev, [cellKey]: 'saving' }));
+
+    try {
+      const payload: Partial<OlRequirement> = {
+        ...req,
+        [field]: trimmed,
+      };
+      const saved = await updateOlRequirement(req.id, payload);
+      setRequirements((prev) => prev.map((item) => (item.id === req.id ? { ...item, ...saved } : item)));
+      setCellStatus((prev) => ({ ...prev, [cellKey]: 'saved' }));
+      setTimeout(() => {
+        setCellStatus((prev) => {
+          const next = { ...prev };
+          delete next[cellKey];
+          return next;
+        });
+      }, 1500);
+    } catch (err: any) {
+      setCellStatus((prev) => ({ ...prev, [cellKey]: 'error' }));
+      console.error('Failed to update O/L requirement:', err);
+    }
+  };
+
   // Batch Import / Paste Modal State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importRawText, setImportRawText] = useState('');
@@ -427,50 +464,192 @@ export default function OlRequirementsPage() {
                 filtered.map((req, idx) => {
                   // Alternating background matching UGC handbook screenshot (White vs soft cream/tan)
                   const isStripe = idx % 2 === 1;
+                  const codeKey = `${req.id}-uniCodes`;
+                  const courseKey = `${req.id}-courseOfStudy`;
+                  const sinKey = `${req.id}-sinhalaLanguage`;
+                  const engKey = `${req.id}-english`;
+                  const mathKey = `${req.id}-mathematics`;
+                  const sciKey = `${req.id}-science`;
+                  const tamKey = `${req.id}-tamilLanguage`;
+
                   return (
                     <tr
                       key={req.id}
-                      className={`border-b border-slate-300 dark:border-zinc-800 transition-colors ${isStripe
-                        ? 'bg-[#ede6d4]/70 dark:bg-amber-950/20 hover:bg-[#e4dbca] dark:hover:bg-amber-950/40'
-                        : 'bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-900/60'
-                        }`}
+                      className={`border-b border-slate-300 dark:border-zinc-800 transition-colors ${
+                        isStripe
+                          ? 'bg-[#ede6d4]/70 dark:bg-amber-950/20 hover:bg-[#e4dbca] dark:hover:bg-amber-950/40'
+                          : 'bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-900/60'
+                      }`}
                     >
-                      <td className="px-4 py-2.5 font-mono font-bold text-xs text-slate-900 dark:text-indigo-400 border-r border-slate-300 dark:border-zinc-800">
-                        {req.uniCodes || '—'}
+                      <td className="px-2 py-1.5 border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={req.uniCodes || ''}
+                          onChange={(e) => handleCellChange(req.id, 'uniCodes', e.target.value)}
+                          onBlur={(e) => handleCellBlur(req, 'uniCodes', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="CODE"
+                          className={`w-28 font-mono font-bold text-xs uppercase text-slate-900 dark:text-indigo-400 bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded px-1.5 py-1 outline-none transition-all ${
+                            cellStatus[codeKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[codeKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[codeKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Uni-Codes directly"
+                        />
                       </td>
-                      <td className="px-5 py-2.5 font-medium text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800 text-sm">
-                        {req.courseOfStudy || '—'}
+
+                      <td className="px-2 py-1.5 border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={req.courseOfStudy || ''}
+                          onChange={(e) => handleCellChange(req.id, 'courseOfStudy', e.target.value)}
+                          onBlur={(e) => handleCellBlur(req, 'courseOfStudy', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="Course of Study"
+                          className={`w-full font-medium text-slate-900 dark:text-zinc-100 bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded px-2 py-1 text-sm outline-none transition-all ${
+                            cellStatus[courseKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[courseKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[courseKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Course of Study directly"
+                        />
                       </td>
-                      <td className="px-3 py-2.5 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800">
-                        {req.sinhalaLanguage || ''}
+
+                      <td className="px-1 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={req.sinhalaLanguage || ''}
+                          onChange={(e) => handleCellChange(req.id, 'sinhalaLanguage', e.target.value)}
+                          onBlur={(e) => handleCellBlur(req, 'sinhalaLanguage', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="—"
+                          className={`w-12 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 uppercase bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded py-1 outline-none transition-all ${
+                            cellStatus[sinKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[sinKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[sinKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Sinhala Lang grade requirement directly"
+                        />
                       </td>
-                      <td className="px-3 py-2.5 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800">
-                        {req.english || ''}
+
+                      <td className="px-1 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={req.english || ''}
+                          onChange={(e) => handleCellChange(req.id, 'english', e.target.value)}
+                          onBlur={(e) => handleCellBlur(req, 'english', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="—"
+                          className={`w-12 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 uppercase bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded py-1 outline-none transition-all ${
+                            cellStatus[engKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[engKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[engKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit English grade requirement directly"
+                        />
                       </td>
-                      <td className="px-3 py-2.5 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800">
-                        {req.mathematics || ''}
+
+                      <td className="px-1 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={req.mathematics || ''}
+                          onChange={(e) => handleCellChange(req.id, 'mathematics', e.target.value)}
+                          onBlur={(e) => handleCellBlur(req, 'mathematics', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="—"
+                          className={`w-12 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 uppercase bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded py-1 outline-none transition-all ${
+                            cellStatus[mathKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[mathKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[mathKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Mathematics grade requirement directly"
+                        />
                       </td>
-                      <td className="px-3 py-2.5 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800">
-                        {req.science || ''}
+
+                      <td className="px-1 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={req.science || ''}
+                          onChange={(e) => handleCellChange(req.id, 'science', e.target.value)}
+                          onBlur={(e) => handleCellBlur(req, 'science', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="—"
+                          className={`w-12 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 uppercase bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded py-1 outline-none transition-all ${
+                            cellStatus[sciKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[sciKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[sciKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Science grade requirement directly"
+                        />
                       </td>
-                      <td className="px-3 py-2.5 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800">
-                        {req.tamilLanguage || ''}
+
+                      <td className="px-1 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={req.tamilLanguage || ''}
+                          onChange={(e) => handleCellChange(req.id, 'tamilLanguage', e.target.value)}
+                          onBlur={(e) => handleCellBlur(req, 'tamilLanguage', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="—"
+                          className={`w-12 text-center font-bold text-sm text-slate-900 dark:text-zinc-100 uppercase bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded py-1 outline-none transition-all ${
+                            cellStatus[tamKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[tamKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[tamKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Tamil Lang grade requirement directly"
+                        />
                       </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleOpenEdit(req)}
-                            className="px-2 py-0.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(req.id)}
-                            className="px-2 py-0.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded"
-                          >
-                            Delete
-                          </button>
-                        </div>
+
+                      <td className="px-4 py-1.5 text-right">
+                        <button
+                          onClick={() => handleDelete(req.id)}
+                          className="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded transition-colors"
+                          title="Delete requirement"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   );

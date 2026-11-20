@@ -366,6 +366,17 @@ export async function createSubject(subject: Partial<Subject>): Promise<Subject>
   });
 }
 
+export async function updateSubject(id: string, subject: Partial<Subject>): Promise<Subject> {
+  return fetchJson<Subject>(`/admin/streams/subjects/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(subject),
+  });
+}
+
+export async function deleteSubject(id: string): Promise<void> {
+  await fetch(`${API_BASE}/admin/streams/subjects/${id}`, { method: 'DELETE' });
+}
+
 // Universities
 export async function getUniversities(): Promise<University[]> {
   return fetchJson<University[]>('/admin/universities');

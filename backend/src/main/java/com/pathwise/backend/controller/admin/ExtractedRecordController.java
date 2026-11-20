@@ -28,12 +28,21 @@ public class ExtractedRecordController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String moduleType) {
 
-        if (status != null && !status.isBlank() && moduleType != null && !moduleType.isBlank()) {
-            return ResponseEntity.ok(extractedRecordRepository.findByModuleTypeAndStatusOrderByCreatedAtDesc(moduleType, status));
+        List<String> targetModules = null;
+        if (moduleType != null && !moduleType.isBlank()) {
+            if ("UNIVERSITY_COURSE".equalsIgnoreCase(moduleType) || "UNI_CODE".equalsIgnoreCase(moduleType)) {
+                targetModules = List.of("UNIVERSITY_COURSE", "UNI_CODE");
+            } else {
+                targetModules = List.of(moduleType);
+            }
+        }
+
+        if (status != null && !status.isBlank() && targetModules != null) {
+            return ResponseEntity.ok(extractedRecordRepository.findByModuleTypeInAndStatusOrderByCreatedAtDesc(targetModules, status));
         } else if (status != null && !status.isBlank()) {
             return ResponseEntity.ok(extractedRecordRepository.findByStatusOrderByCreatedAtDesc(status));
-        } else if (moduleType != null && !moduleType.isBlank()) {
-            return ResponseEntity.ok(extractedRecordRepository.findByModuleTypeOrderByCreatedAtDesc(moduleType));
+        } else if (targetModules != null) {
+            return ResponseEntity.ok(extractedRecordRepository.findByModuleTypeInOrderByCreatedAtDesc(targetModules));
         }
         return ResponseEntity.ok(extractedRecordRepository.findAllByOrderByCreatedAtDesc());
     }

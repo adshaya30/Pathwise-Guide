@@ -88,4 +88,58 @@ public class HandbookChunkRepository {
             return 0;
         }
     }
+
+    /**
+     * Text-based fallback search directly querying document_pages and handbook_chunks.
+     * Ensures RAG continues to work even if vector embeddings are unavailable or not yet generated.
+     */
+    public List<Map<String, Object>> searchHandbookText(String query, int topK) {
+        if (query == null || query.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        String[] terms = query.toLowerCase().replaceAll("[^a-z0-9 ]", "").split("\\s+");
+        List<String> validTerms = Arrays.stream(terms)
+                .filter(t -> t.length() >= 3)
+                .filter(t -> !List.of("the", "and", "for", "what", "are", "how", "can", "with", "from", "this", "that").contains(t))
+                .limit(4)
+                .toList();
+
+        if (validTerms.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        StringBuilder whereClause = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+        for (int i = 0; i < validTerms.size(); i++) {
+            if (i > 0) whereClause.append(" OR ");
+            whereClause.append("raw_text ILIKE ?");
+            params.add("%" + validTerms.get(i) + "%");
+        }
+        params.add(topK);
+
+        String sql = "SELECT page_number AS pageNumber, page_type AS sectionTitle, raw_text AS content " +
+                     "FROM document_pages WHERE (" + whereClause + ") AND raw_text IS NOT NULL " +
+                     "ORDER BY page_number ASC LIMIT ?";
+
+        try {
+            return jdbcTemplate.query(sql, (rs, rowNum) -> {
+                Map<String, Object> map = new HashMap<>();
+                int pageNum = rs.getInt("pageNumber");
+                String pageType = rs.getString("sectionTitle");
+                String rawContent = rs.getString("content");
+                // Cap content size to ~1500 chars to avoid prompt bloat
+                String trimmedContent = rawContent.length() > 1500 ? rawContent.substring(0, 1500) + "..." : rawContent;
+
+                map.put("pageNumber", pageNum);
+                map.put("sectionTitle", "Handbook Page " + pageNum + " (" + (pageType != null ? pageType : "Guidance") + ")");
+                map.put("content", trimmedContent);
+                map.put("similarityScore", 0.85);
+                return map;
+            }, params.toArray());
+        } catch (Exception e) {
+            log.error("Failed to execute text fallback search on document_pages: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
 }

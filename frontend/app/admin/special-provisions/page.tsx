@@ -29,6 +29,49 @@ export default function SpecialProvisionsPage() {
     blindBraille: 0,
   });
 
+  // Live status for direct inline cell saving: [spId-field]: 'saving' | 'saved' | 'error'
+  const [cellStatus, setCellStatus] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
+
+  // Direct edit: on input change in table
+  const handleCellChange = (spId: string, field: keyof SpecialProvision, value: any) => {
+    setProvisions((prev) =>
+      prev.map((sp) => (sp.id === spId ? { ...sp, [field]: value } : sp))
+    );
+  };
+
+  // Direct edit: on blur or Enter save to backend
+  const handleCellBlur = async (sp: SpecialProvision, field: keyof SpecialProvision, value: any) => {
+    let processedVal = value;
+    if (typeof value === 'string') {
+      processedVal = field === 'uniCode' ? value.trim().toUpperCase() : value.trim();
+    } else if (field === 'differentlyAbled' || field === 'blindBraille') {
+      processedVal = value === '' || value === null || isNaN(Number(value)) ? 0 : Number(value);
+    }
+
+    const cellKey = `${sp.id}-${String(field)}`;
+    setCellStatus((prev) => ({ ...prev, [cellKey]: 'saving' }));
+
+    try {
+      const payload: Partial<SpecialProvision> = {
+        ...sp,
+        [field]: processedVal,
+      };
+      const saved = await updateSpecialProvision(sp.id, payload);
+      setProvisions((prev) => prev.map((item) => (item.id === sp.id ? { ...item, ...saved } : item)));
+      setCellStatus((prev) => ({ ...prev, [cellKey]: 'saved' }));
+      setTimeout(() => {
+        setCellStatus((prev) => {
+          const next = { ...prev };
+          delete next[cellKey];
+          return next;
+        });
+      }, 1500);
+    } catch (err: any) {
+      setCellStatus((prev) => ({ ...prev, [cellKey]: 'error' }));
+      console.error('Failed to update special provision:', err);
+    }
+  };
+
   // Batch Import / Paste Modal State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importRawText, setImportRawText] = useState('');
@@ -481,6 +524,12 @@ export default function SpecialProvisionsPage() {
                 filtered.map((sp, idx) => {
                   // Alternating background matching UGC handbook screenshot (White vs soft steel blue)
                   const isStripe = idx % 2 === 1;
+                  const uniKey = `${sp.id}-universityName`;
+                  const courseKey = `${sp.id}-courseOfStudy`;
+                  const codeKey = `${sp.id}-uniCode`;
+                  const daKey = `${sp.id}-differentlyAbled`;
+                  const bbKey = `${sp.id}-blindBraille`;
+
                   return (
                     <tr
                       key={sp.id}
@@ -490,36 +539,127 @@ export default function SpecialProvisionsPage() {
                           : 'bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-900/60'
                       }`}
                     >
-                      <td className="px-5 py-2.5 font-medium text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800 text-sm">
-                        {sp.universityName || '—'}
+                      <td className="px-2 py-1.5 border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={sp.universityName || ''}
+                          onChange={(e) => handleCellChange(sp.id, 'universityName', e.target.value)}
+                          onBlur={(e) => handleCellBlur(sp, 'universityName', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="University Name"
+                          className={`w-full font-medium text-slate-900 dark:text-zinc-100 bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded px-2 py-1 text-sm outline-none transition-all ${
+                            cellStatus[uniKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[uniKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[uniKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit University Name directly"
+                        />
                       </td>
-                      <td className="px-5 py-2.5 font-medium text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800 text-sm">
-                        {sp.courseOfStudy || '—'}
+
+                      <td className="px-2 py-1.5 border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={sp.courseOfStudy || ''}
+                          onChange={(e) => handleCellChange(sp.id, 'courseOfStudy', e.target.value)}
+                          onBlur={(e) => handleCellBlur(sp, 'courseOfStudy', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="Course of Study"
+                          className={`w-full font-medium text-slate-900 dark:text-zinc-100 bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded px-2 py-1 text-sm outline-none transition-all ${
+                            cellStatus[courseKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[courseKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[courseKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Course of Study directly"
+                        />
                       </td>
-                      <td className="px-4 py-2.5 text-center font-mono font-semibold text-xs text-slate-900 dark:text-indigo-400 border-r border-slate-300 dark:border-zinc-800">
-                        {sp.uniCode || '—'}
+
+                      <td className="px-2 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="text"
+                          value={sp.uniCode || ''}
+                          onChange={(e) => handleCellChange(sp.id, 'uniCode', e.target.value)}
+                          onBlur={(e) => handleCellBlur(sp, 'uniCode', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          placeholder="CODE"
+                          className={`w-24 text-center font-mono font-semibold text-xs uppercase text-slate-900 dark:text-indigo-400 bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded px-1.5 py-1 outline-none transition-all ${
+                            cellStatus[codeKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[codeKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[codeKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Uni-Code directly"
+                        />
                       </td>
-                      <td className="px-4 py-2.5 text-center font-mono font-semibold text-sm text-slate-900 dark:text-zinc-100 border-r border-slate-300 dark:border-zinc-800">
-                        {formatSeats(sp.differentlyAbled)}
+
+                      <td className="px-2 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="number"
+                          value={sp.differentlyAbled ?? 0}
+                          onChange={(e) => handleCellChange(sp.id, 'differentlyAbled', e.target.value === '' ? 0 : Number(e.target.value))}
+                          onBlur={(e) => handleCellBlur(sp, 'differentlyAbled', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          className={`w-16 text-center font-mono font-bold text-sm text-slate-900 dark:text-zinc-100 bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded px-1.5 py-1 outline-none transition-all ${
+                            cellStatus[daKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[daKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[daKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Differently Abled seats directly"
+                        />
                       </td>
-                      <td className="px-4 py-2.5 text-center font-mono font-semibold text-sm text-slate-900 dark:text-amber-400 border-r border-slate-300 dark:border-zinc-800">
-                        {formatSeats(sp.blindBraille)}
+
+                      <td className="px-2 py-1.5 text-center border-r border-slate-300 dark:border-zinc-800">
+                        <input
+                          type="number"
+                          value={sp.blindBraille ?? 0}
+                          onChange={(e) => handleCellChange(sp.id, 'blindBraille', e.target.value === '' ? 0 : Number(e.target.value))}
+                          onBlur={(e) => handleCellBlur(sp, 'blindBraille', e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                          className={`w-16 text-center font-mono font-bold text-sm text-amber-700 dark:text-amber-400 bg-transparent hover:bg-white dark:hover:bg-zinc-900 focus:bg-white dark:focus:bg-zinc-900 border border-transparent hover:border-slate-300 dark:hover:border-zinc-700 focus:border-indigo-500 rounded px-1.5 py-1 outline-none transition-all ${
+                            cellStatus[bbKey] === 'saving'
+                              ? 'ring-2 ring-indigo-400 animate-pulse'
+                              : cellStatus[bbKey] === 'saved'
+                              ? 'ring-2 ring-emerald-500 bg-emerald-50/50'
+                              : cellStatus[bbKey] === 'error'
+                              ? 'ring-2 ring-rose-500 bg-rose-50/50'
+                              : ''
+                          }`}
+                          title="Click to edit Blind (Braille) seats directly"
+                        />
                       </td>
-                      <td className="px-5 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleOpenEdit(sp)}
-                            className="px-2 py-0.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(sp.id)}
-                            className="px-2 py-0.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded"
-                          >
-                            Delete
-                          </button>
-                        </div>
+
+                      <td className="px-4 py-1.5 text-right">
+                        <button
+                          onClick={() => handleDelete(sp.id)}
+                          className="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded transition-colors"
+                          title="Delete allocation"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   );

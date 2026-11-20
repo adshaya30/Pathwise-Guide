@@ -174,7 +174,7 @@ public class ReviewAndPublishService {
     private String publishPayloadToModule(String moduleType, JsonNode payload) throws Exception {
         return switch (moduleType.toUpperCase()) {
             case "COURSE" -> publishCourse(payload);
-            case "UNI_CODE" -> publishUniCode(payload);
+            case "UNI_CODE", "UNIVERSITY_COURSE" -> publishUniCode(payload);
             case "UNIVERSITY" -> publishUniversity(payload);
             case "CUTOFF" -> publishCutoff(payload);
             case "DISTRICT" -> publishDistrict(payload);
@@ -219,20 +219,23 @@ public class ReviewAndPublishService {
         String courseName = p.path("courseName").asText("").trim();
         String uniName = p.path("universityName").asText("").trim();
 
-        // Lookup or create Course
-        Course course = courseRepository.findByNameIgnoreCase(courseName).orElseGet(() -> {
-            String cCode = code.replaceAll("[^0-9]", "");
-            if (cCode.isBlank() || courseRepository.findByCode(cCode).isPresent()) {
-                cCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-            }
-            Course.CourseBuilder builder = Course.builder()
-                    .code(cCode)
-                    .name(courseName);
-            if (p.has("streamName") && !p.get("streamName").isNull() && !p.get("streamName").asText().isBlank()) {
-                builder.streamName(p.get("streamName").asText().trim());
-            }
-            return courseRepository.save(builder.build());
-        });
+        // Lookup or create Course (correlate 3-digit prefix e.g. "001A" -> "001" Medicine)
+        String cCode = code.replaceAll("[^0-9]", "");
+        Course course = (!cCode.isBlank() ? courseRepository.findByCode(cCode) : Optional.<Course>empty())
+                .or(() -> !courseName.isBlank() ? courseRepository.findByNameIgnoreCase(courseName) : Optional.empty())
+                .orElseGet(() -> {
+                    String finalCode = cCode;
+                    if (finalCode.isBlank() || courseRepository.findByCode(finalCode).isPresent()) {
+                        finalCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                    }
+                    Course.CourseBuilder builder = Course.builder()
+                            .code(finalCode)
+                            .name(courseName);
+                    if (p.has("streamName") && !p.get("streamName").isNull() && !p.get("streamName").asText().isBlank()) {
+                        builder.streamName(p.get("streamName").asText().trim());
+                    }
+                    return courseRepository.save(builder.build());
+                });
         if (p.has("streamName") && !p.get("streamName").isNull() && !p.get("streamName").asText().isBlank()) {
             String stream = p.get("streamName").asText().trim();
             if (course.getStreamName() == null || course.getStreamName().isBlank()) {
@@ -250,6 +253,18 @@ public class ReviewAndPublishService {
             }
             return universityRepository.save(University.builder().code(uCode).name(uniName).build());
         });
+
+        if (code.isBlank()) {
+            String prefix = course.getCode() != null && !course.getCode().isBlank() ? course.getCode() : "000";
+            String suffix = university.getCode() != null && !university.getCode().isBlank() ? university.getCode().substring(0, Math.min(2, university.getCode().length())) : "U";
+            String candidate = prefix + suffix;
+            int counter = 1;
+            while (uniCodeRepository.findByCode(candidate).isPresent()) {
+                candidate = prefix + suffix + counter;
+                counter++;
+            }
+            code = candidate;
+        }
 
         UniCode uniCode = uniCodeRepository.findByCode(code).orElse(new UniCode());
         uniCode.setCode(code);

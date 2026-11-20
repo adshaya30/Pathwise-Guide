@@ -146,6 +146,11 @@ public class HybridAdvisorService {
             similarChunks = handbookChunkRepository.findSimilarChunks(queryVectorStr, 5, 0.60);
         }
 
+        // If vector search had 0 matches or embedding service unavailable, fallback to handbook text search
+        if (similarChunks.isEmpty()) {
+            similarChunks = handbookChunkRepository.searchHandbookText(question, 4);
+        }
+
         StringBuilder ragContext = new StringBuilder();
         Set<Integer> citedPages = new LinkedHashSet<>();
         Set<String> citedSections = new LinkedHashSet<>();
@@ -215,7 +220,14 @@ public class HybridAdvisorService {
             return "Gemini API key is not configured. Please set `GEMINI_API_KEY` in backend configuration.";
         }
 
-        List<String> models = List.of(geminiModel, "gemini-3.5-flash", "gemini-flash-latest");
+        List<String> models = List.of(
+                geminiModel,
+                "gemini-3.5-flash-lite",
+                "gemini-3.1-flash-lite",
+                "gemini-3-flash-preview",
+                "gemini-3.5-flash",
+                "gemini-flash-latest"
+        );
         for (String model : models) {
             try {
                 String url = String.format("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",

@@ -76,6 +76,44 @@ public class GeminiExtractionService {
             "KEGALLE", "RATNAPURA"
     );
 
+    public static final List<String> KNOWN_UNIVERSITIES = List.of(
+            "UNIVERSITY OF COLOMBO SCHOOL OF COMPUTING",
+            "UNIVERSITY OF COLOMBO",
+            "UNIVERSITY OF PERADENIYA",
+            "UNIVERSITY OF SRI JAYEWARDENEPURA",
+            "UNIVERSITY OF KELANIYA",
+            "UNIVERSITY OF MORATUWA",
+            "UNIVERSITY OF JAFFNA",
+            "UNIVERSITY OF RUHUNA",
+            "EASTERN UNIVERSITY, SRI LANKA",
+            "EASTERN UNIVERSITY",
+            "SOUTH EASTERN UNIVERSITY OF SRI LANKA",
+            "SOUTH EASTERN UNIVERSITY",
+            "RAJARATA UNIVERSITY OF SRI LANKA",
+            "RAJARATA UNIVERSITY",
+            "WAYAMBA UNIVERSITY OF SRI LANKA",
+            "WAYAMBA UNIVERSITY",
+            "SABARAGAMUWA UNIVERSITY OF SRI LANKA",
+            "SABARAGAMUWA UNIVERSITY",
+            "UVA WELLASSA UNIVERSITY OF SRI LANKA",
+            "UVA WELLASSA UNIVERSITY",
+            "UNIVERSITY OF THE VISUAL AND PERFORMING ARTS",
+            "GAMPAHA WICKRAMARACHCHI UNIVERSITY OF INDIGENOUS MEDICINE",
+            "GAMPAHA WICKRAMARACHCHI UNIVERSITY",
+            "OPEN UNIVERSITY OF SRI LANKA",
+            "UNIVERSITY OF VAVUNIYA, SRI LANKA",
+            "UNIVERSITY OF VAVUNIYA",
+            "SWAMY VIPULANANDA INSTITUTE OF AESTHETIC STUDIES, EASTERN UNIVERSITY, SRI LANKA",
+            "SWAMY VIPULANANDA INSTITUTE OF AESTHETIC STUDIES",
+            "SWAMY VIPULANANDA INSTITUTE",
+            "TRINCOMALEE CAMPUS, EASTERN UNIVERSITY, SRI LANKA",
+            "TRINCOMALEE CAMPUS, EASTERN UNIVERSITY",
+            "TRINCOMALEE CAMPUS",
+            "SRIPALEE CAMPUS, UNIVERSITY OF COLOMBO",
+            "SRIPALEE CAMPUS",
+            "INSTITUTE OF INDIGENOUS MEDICINE"
+    );
+
     private static final List<String> APPROVED_MODELS = List.of(
             "gemini-3.5-flash",
             "gemini-flash-lite-latest",
@@ -377,15 +415,19 @@ public class GeminiExtractionService {
                - 'Subject': individual subject belonging to this basket (e.g., 'Economics', 'History', 'Geography', 'Sinhala', 'Tamil').
                - 'Guidance / Selection Rule': the guidance rule for selecting subjects from this basket (e.g., 'Candidates can select a maximum of two subjects from Basket 1').
             10. SECTION 2: STREAM DETAILS, AVAILABLE COURSES & OFFERING UNIVERSITIES:
-               (Essential information for preparation for admission to first degree programmes / Courses of study under each stream / Courses for which students from different subject streams are eligible)
-               `| Stream | Course of Study | Offering University | Minimum Eligibility / Requirements |`
+               (Essential information for preparation for admission to first degree programmes / Courses of study under each stream / Courses for which students from different subject streams are eligible / Sections starting with 2.2.X.Y)
+               `| Stream | Section | Course Code | Course of Study | Proposed Intake | Minimum Eligibility Requirements | Degree Programme | Available University | Duration |`
                CRITICAL RULES FOR SECTION 2:
                - Identify the Stream name for the courses (e.g., 'Arts', 'Commerce', 'Biological Science', 'Physical Science', 'Engineering Technology', 'Biosystems Technology', 'Indigenous Medicine', or 'Other Streams (Different Subject Streams)').
                - If the section heading mentions 'COURSES OF STUDY FOR WHICH STUDENTS FROM DIFFERENT SUBJECT STREAMS ARE ELIGIBLE', set Stream to 'Other Streams (Different Subject Streams)'.
-               - Extract ALL Courses of Study described under each Stream.
-               - Extract ALL Universities listed as offering each course. If multiple universities offer the course (e.g., Colombo, Peradeniya, Sri Jayewardenepura, Kelaniya), output a separate row for EACH University:
-                 | Biological Science | Medicine | University of Colombo | At least 3 passes in Biology, Chemistry, Physics/Agri |
-                 | Biological Science | Medicine | University of Peradeniya | At least 3 passes in Biology, Chemistry, Physics/Agri |
+               - Section: the section number if present (e.g., '2.2.4.3', '2.2.1.1').
+               - Course Code: 3-digit code (e.g., '010', '001', '016').
+               - Course of Study: full course name (e.g., 'Engineering (TM) - Textile & Apparel Engineering', 'Medicine').
+               - Proposed Intake: integer number of places (e.g., 98, 200).
+               - Minimum Eligibility Requirements: full admission eligibility criteria text.
+               - Degree Programme: full degree title awarded (e.g., 'Bachelor of the Science of Engineering Honours in Textile & Apparel Engineering [BScEngHons (Textile & Apparel Engineering)]').
+               - Available University: university or universities offering the course (e.g., 'University of Moratuwa'). If multiple universities offer the course, output a separate row for EACH University with the same Course Code and Course of Study.
+               - Duration: duration of study (e.g., '04 years', '03 years', '05 years').
 
             RULES:
             - If this page contains a table, output ONLY the clean Markdown table starting with `|`.
@@ -402,7 +444,7 @@ public class GeminiExtractionService {
 
         switch (tableType) {
             case "3. UNI-CODES ASSIGNED FOR EACH COURSE OF STUDY" -> {
-                result.pageType = "UNI_CODE";
+                result.pageType = "UNIVERSITY_COURSE";
                 result.items = parseMarkdownUniCodes(cleaned);
             }
             case "6. G.C.E. (O/L) EXAMINATION REQUIREMENTS" -> {
@@ -474,6 +516,27 @@ public class GeminiExtractionService {
                 String courseName = cells[1].trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
                 String uniName = cells[2].trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
                 String code = cells[3].trim().toUpperCase().replaceAll("[^A-Z0-9/]", "").trim();
+
+                // Check if columns were inadvertently swapped (e.g. university in col 1, course in col 2)
+                if (looksLikeUniversity(courseName) && !looksLikeUniversity(uniName) && !uniName.isBlank()) {
+                    String temp = courseName;
+                    courseName = uniName;
+                    uniName = temp;
+                }
+
+                // Check if courseName inadvertently absorbed universityName
+                if (uniName.isBlank() || looksLikeUniversity(courseName)) {
+                    for (String ku : KNOWN_UNIVERSITIES) {
+                        int idx = courseName.toUpperCase().lastIndexOf(ku);
+                        if (idx != -1 && idx > 0) {
+                            uniName = courseName.substring(idx).trim();
+                            courseName = courseName.substring(0, idx).trim();
+                            break;
+                        }
+                    }
+                }
+
+                courseName = courseName.replaceAll("[,\\-–—]+$", "").trim();
 
                 if (!code.isBlank() && (!courseName.isBlank() || !uniName.isBlank())) {
                     Map<String, Object> item = new HashMap<>();
@@ -619,53 +682,117 @@ public class GeminiExtractionService {
             }
             String[] cells = trimmed.split("\\|");
             if (cells.length >= 4) {
-                String streamCol = cells[1].trim();
-                String courseCol = cells[2].trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
-                String uniCol = cells[3].trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
-                String eligCol = cells.length >= 5 ? cells[4].trim() : "";
+                String streamCol = "";
+                String sectionCol = "";
+                String codeCol = "";
+                String courseCol = "";
+                String intakeCol = "0";
+                String eligCol = "";
+                String degreeCol = "";
+                String uniCol = "";
+                String durationCol = "";
+
+                if (cells.length >= 9) {
+                    // 9-column format: | Stream | Section | Course Code | Course of Study | Proposed Intake | Minimum Eligibility Requirements | Degree Programme | Available University | Duration |
+                    streamCol = cells[1].trim();
+                    sectionCol = cells[2].trim();
+                    codeCol = cells[3].trim().replaceAll("[^0-9A-Za-z]", "").toUpperCase();
+                    courseCol = cleanFieldText(cells[4]);
+                    intakeCol = cells[5].trim();
+                    eligCol = cleanFieldText(cells[6]);
+                    degreeCol = cleanFieldText(cells[7]);
+                    uniCol = cleanFieldText(cells[8]);
+                    durationCol = cells.length >= 10 ? cleanFieldText(cells[9]) : "";
+                } else {
+                    // Legacy 4/5-column format: | Stream | Course of Study | Offering University | Minimum Eligibility / Requirements |
+                    streamCol = cells[1].trim();
+                    courseCol = cleanFieldText(cells[2]);
+                    uniCol = cleanFieldText(cells[3]);
+                    eligCol = cells.length >= 5 ? cleanFieldText(cells[4]) : "";
+                }
 
                 if (!streamCol.isBlank() && !streamCol.equalsIgnoreCase("Stream")) {
                     currentStream = normalizeStreamName(streamCol);
+                } else if (!sectionCol.isBlank()) {
+                    if (sectionCol.startsWith("2.2.1")) currentStream = "Arts";
+                    else if (sectionCol.startsWith("2.2.2")) currentStream = "Commerce";
+                    else if (sectionCol.startsWith("2.2.3")) currentStream = "Biological Science";
+                    else if (sectionCol.startsWith("2.2.4")) {
+                        if (courseCol.toLowerCase().contains("engineering") || courseCol.toLowerCase().contains("technology") || courseCol.toLowerCase().contains("textile")) {
+                            currentStream = "Engineering Technology";
+                        } else {
+                            currentStream = "Physical Science";
+                        }
+                    } else if (sectionCol.startsWith("2.2.5")) currentStream = "Engineering Technology";
+                    else if (sectionCol.startsWith("2.2.6")) currentStream = "Biosystems Technology";
+                    else if (sectionCol.startsWith("2.2.7")) currentStream = "Indigenous Medicine";
                 }
 
                 if (courseCol.isBlank()) continue;
 
-                // 1. Course record for Course Table (course name + stream name)
-                String cKey = courseCol.toUpperCase();
+                if (codeCol.isBlank()) {
+                    Matcher cm = Pattern.compile("(?i)(?:course\\s*code\\s*[-:]\\s*)([0-9]{3}[A-Z]?)").matcher(courseCol);
+                    if (cm.find()) {
+                        codeCol = cm.group(1).trim().toUpperCase();
+                        courseCol = courseCol.replaceAll("(?i)\\(?\\s*course\\s*code\\s*[-:]\\s*[0-9]{3}[A-Z]?\\s*\\)?", "").trim();
+                    } else {
+                        codeCol = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                    }
+                }
+
+                int intake = parseSeatCount(intakeCol);
+                boolean aptitudeTest = line.toLowerCase().contains("aptitude") || eligCol.toLowerCase().contains("aptitude");
+
+                // 1. Course record for Course Table
+                String cKey = codeCol.toUpperCase() + "|||" + courseCol.toUpperCase();
                 if (!seenCourses.contains(cKey)) {
                     seenCourses.add(cKey);
-                    Map<String, Object> courseItem = new HashMap<>();
+                    Map<String, Object> courseItem = new LinkedHashMap<>();
                     courseItem.put("moduleType", "COURSE");
+                    courseItem.put("code", codeCol);
                     courseItem.put("name", courseCol);
                     courseItem.put("streamName", currentStream);
+                    courseItem.put("totalIntake", intake);
                     if (!eligCol.isBlank()) {
                         courseItem.put("minimumEligibility", eligCol);
                     }
-                    String generatedCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-                    courseItem.put("code", generatedCode);
+                    if (!degreeCol.isBlank()) {
+                        courseItem.put("degreeTitle", degreeCol);
+                    }
                     list.add(courseItem);
                 }
 
-                // 2. University Course record for Uni-Codes Table (course name + university name)
+                // 2. University Course record for Uni-Codes Table
                 if (!uniCol.isBlank()) {
                     String[] unis = uniCol.split("[,;/]+");
                     for (String u : unis) {
-                        String uName = u.trim();
+                        String uName = cleanFieldText(u);
                         if (uName.isBlank()) continue;
 
-                        String offeringKey = cKey + "|||" + uName.toUpperCase();
+                        String offeringKey = codeCol.toUpperCase() + "|||" + uName.toUpperCase();
                         if (!seenUniCodes.contains(offeringKey)) {
                             seenUniCodes.add(offeringKey);
-                            Map<String, Object> uniItem = new HashMap<>();
+                            Map<String, Object> uniItem = new LinkedHashMap<>();
                             uniItem.put("moduleType", "UNI_CODE");
                             uniItem.put("courseName", courseCol);
                             uniItem.put("universityName", uName);
                             uniItem.put("streamName", currentStream);
-                            String uCode = findUniCode(courseCol, uName);
-                            uniItem.put("code", uCode != null ? uCode : "");
-                            if (!eligCol.isBlank()) {
-                                uniItem.put("minimumEligibility", eligCol);
+                            uniItem.put("intake", intake);
+                            if (!degreeCol.isBlank()) {
+                                uniItem.put("degreeProgram", degreeCol);
                             }
+                            if (!durationCol.isBlank()) {
+                                uniItem.put("duration", durationCol);
+                            } else {
+                                uniItem.put("duration", "04 years");
+                            }
+                            uniItem.put("aptitudeTest", aptitudeTest);
+
+                            String uCode = findUniCode(courseCol, uName);
+                            if (uCode == null || uCode.isBlank()) {
+                                uCode = deriveUniCode(codeCol, uName);
+                            }
+                            uniItem.put("code", uCode);
                             list.add(uniItem);
                         }
                     }
@@ -876,7 +1003,8 @@ public class GeminiExtractionService {
                 || lower.contains("essential information for preparation for admission")
                 || lower.contains("different subject streams are eligible")
                 || lower.contains("different subject streams")
-                || (lower.contains("section 2") && (lower.contains("stream") || lower.contains("first degree programmes")));
+                || (lower.contains("section 2") && (lower.contains("stream") || lower.contains("first degree programmes")))
+                || isSection2Content(text);
 
         if (hasTableKeywords) return true;
 
@@ -968,12 +1096,16 @@ public class GeminiExtractionService {
                 || (headerLine.contains("basket number") && headerLine.contains("basket name"))) {
             return "9. ARTS SUBJECT BASKETS";
         }
-        if (lower.contains("essential information for preparation for admission")
+        if (isSection2Content(content)
+                || lower.contains("essential information for preparation for admission")
                 || lower.contains("different subject streams are eligible")
                 || lower.contains("different subject streams")
+                || headerLine.contains("degree programme")
+                || headerLine.contains("minimum eligibility")
                 || headerLine.contains("offering university")
                 || (headerLine.contains("stream") && headerLine.contains("course"))
-                || (headerLine.contains("stream") && headerLine.contains("university"))) {
+                || (headerLine.contains("stream") && headerLine.contains("university"))
+                || (headerLine.contains("section") && headerLine.contains("course code"))) {
             return "10. SECTION 2: STREAM COURSES AND UNIVERSITIES";
         }
         return "GENERAL";
@@ -1180,7 +1312,7 @@ public class GeminiExtractionService {
             result.confidence = 0.90;
             result.items = extractSpecialProvisionRecords(text);
         } else if (lower.contains("uni-code") || lower.contains("unicode") || (lower.contains("university") && Pattern.compile("\\b0[0-9]{2}[A-Z]\\b").matcher(text).find())) {
-            result.pageType = "UNI_CODE";
+            result.pageType = "UNIVERSITY_COURSE";
             result.confidence = 0.88;
             result.items = extractUniCodeRecords(text);
         } else if (lower.contains("aptitude test") || lower.contains("practical test")) {
@@ -1193,6 +1325,10 @@ public class GeminiExtractionService {
             result.pageType = "ARTS_BASKET";
             result.confidence = 0.88;
             result.items = extractArtsBasketRecords(text);
+        } else if (isSection2Content(text)) {
+            result.pageType = "COURSE";
+            result.confidence = 0.95;
+            result.items = extractSection2CoursesAndUniCodes(text);
         } else if (lower.contains("course of study") || lower.contains("intake") || lower.contains("proposed intake")) {
             result.pageType = "COURSE";
             result.confidence = 0.85;
@@ -1216,29 +1352,98 @@ public class GeminiExtractionService {
         return result;
     }
 
+    private boolean looksLikeUniversity(String s) {
+        if (s == null) return false;
+        String upper = s.toUpperCase();
+        return upper.contains("UNIVERSITY") || upper.contains("CAMPUS") || upper.contains("INSTITUTE")
+                || upper.contains("COLLEGE") || upper.contains("UCSC") || upper.contains("UVPA");
+    }
+
     private List<Map<String, Object>> extractUniCodeRecords(String text) {
         List<Map<String, Object>> list = new ArrayList<>();
-        // 1. Matches UGC Handbook table lines ending with Uni-Code: COURSE UNIVERSITY CODE
-        Pattern p1 = Pattern.compile("^(?:[ï‚µ•*\\s]*)(.+?)\\s{2,}(.+?)\\s+(\\d{3}[A-Z]?)$", Pattern.MULTILINE);
-        Matcher m1 = p1.matcher(text);
-        while (m1.find()) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("courseName", m1.group(1).trim());
-            item.put("universityName", m1.group(2).trim());
-            item.put("code", m1.group(3).trim());
-            list.add(item);
+        if (text == null || text.isBlank()) return list;
+
+        // Preprocess: merge lines that wrapped across multiple lines in UGC Handbook
+        List<String> mergedLines = new ArrayList<>();
+        String[] rawLines = text.split("\\r?\\n");
+        StringBuilder buffer = new StringBuilder();
+
+        for (String raw : rawLines) {
+            String line = raw.trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
+            if (line.isBlank() || line.toLowerCase().contains("course of study") || line.contains("---")) {
+                continue;
+            }
+            if (buffer.length() > 0) {
+                buffer.append(" ").append(line);
+            } else {
+                buffer.append(line);
+            }
+            if (buffer.toString().matches(".*\\b\\d{3}[A-Z]?$")) {
+                mergedLines.add(buffer.toString());
+                buffer.setLength(0);
+            }
+        }
+        if (buffer.length() > 0 && buffer.toString().matches(".*\\b\\d{3}[A-Z]?$")) {
+            mergedLines.add(buffer.toString());
         }
 
-        // 2. Matches code at start: CODE Course - University
-        if (list.isEmpty()) {
-            Pattern p2 = Pattern.compile("\\b(\\d{3}[A-Z]?)\\s+([A-Za-z &\\-/]+?)\\s*-\\s*([A-Za-z &\\-/]+)");
-            Matcher m2 = p2.matcher(text);
-            while (m2.find()) {
-                Map<String, Object> item = new HashMap<>();
-                item.put("code", m2.group(1).trim());
-                item.put("courseName", m2.group(2).trim());
-                item.put("universityName", m2.group(3).trim());
-                list.add(item);
+        Pattern codeEndPattern = Pattern.compile("^(.*?)\\s+(\\d{3}[A-Z]?)$");
+        List<String> allUnis = new ArrayList<>();
+        allUnis.addAll(getDynamicUniversities());
+        allUnis.addAll(KNOWN_UNIVERSITIES);
+        allUnis = allUnis.stream()
+                .filter(u -> u != null && !u.isBlank())
+                .distinct()
+                .sorted((a, b) -> Integer.compare(b.length(), a.length()))
+                .toList();
+
+        for (String line : mergedLines) {
+            Matcher m = codeEndPattern.matcher(line.trim());
+            if (m.find()) {
+                String prefix = m.group(1).trim();
+                String code = m.group(2).trim().toUpperCase();
+
+                String matchedUni = "";
+                String courseName = prefix;
+
+                for (String uni : allUnis) {
+                    int idx = prefix.toUpperCase().lastIndexOf(uni.toUpperCase());
+                    if (idx != -1 && idx > 0) {
+                        courseName = prefix.substring(0, idx).trim();
+                        matchedUni = prefix.substring(idx).trim();
+                        break;
+                    }
+                }
+
+                if (matchedUni.isBlank()) {
+                    String[] parts = prefix.split("\\s{2,}");
+                    if (parts.length >= 2) {
+                        courseName = parts[0].trim();
+                        matchedUni = parts[1].trim();
+                    } else {
+                        int hIdx = prefix.lastIndexOf("-");
+                        if (hIdx > 0) {
+                            courseName = prefix.substring(0, hIdx).trim();
+                            matchedUni = prefix.substring(hIdx + 1).trim();
+                        }
+                    }
+                }
+
+                if (looksLikeUniversity(courseName) && !looksLikeUniversity(matchedUni) && !matchedUni.isBlank()) {
+                    String temp = courseName;
+                    courseName = matchedUni;
+                    matchedUni = temp;
+                }
+
+                courseName = courseName.replaceAll("[,\\-–—]+$", "").trim();
+
+                if (!code.isBlank() && (!courseName.isBlank() || !matchedUni.isBlank())) {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("code", code);
+                    item.put("courseName", courseName);
+                    item.put("universityName", matchedUni);
+                    list.add(item);
+                }
             }
         }
         return list;
@@ -1436,14 +1641,30 @@ public class GeminiExtractionService {
 
     private List<Map<String, Object>> extractCourseRecords(String text) {
         List<Map<String, Object>> list = new ArrayList<>();
-        Pattern p = Pattern.compile("(?i)course\\s*(?:code)?[:\\s]+(\\d{3})\\s*[-:]\\s*([A-Za-z &\\-/]+)");
-        Matcher m = p.matcher(text);
-        while (m.find()) {
+        if (text == null || text.isBlank()) return list;
+
+        // 1. Matches UGC Handbook Annex A lines: "001 Medicine - 2095" or "002 Dental Surgery - 130"
+        Pattern p1 = Pattern.compile("(?m)^\\s*(\\d{3})\\s+([A-Za-z &(),/\\-]+?)\\s*(?:[-–—:]\\s*|\\s{2,})(\\d{1,5})\\s*$");
+        Matcher m1 = p1.matcher(text);
+        while (m1.find()) {
             Map<String, Object> item = new HashMap<>();
-            item.put("code", m.group(1).trim());
-            item.put("name", m.group(2).trim());
-            item.put("totalIntake", 100);
+            item.put("code", m1.group(1).trim());
+            item.put("name", m1.group(2).trim());
+            item.put("totalIntake", parseSeatCount(m1.group(3)));
             list.add(item);
+        }
+
+        // 2. Fallback: Matches "Course Code Course of Study" without explicit intake or with hyphen
+        if (list.isEmpty()) {
+            Pattern p2 = Pattern.compile("(?i)(?:course\\s*(?:code)?[:\\s]+)?(\\d{3})\\s*[-:]\\s*([A-Za-z &\\-/]+)");
+            Matcher m2 = p2.matcher(text);
+            while (m2.find()) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("code", m2.group(1).trim());
+                item.put("name", m2.group(2).trim());
+                item.put("totalIntake", 100);
+                list.add(item);
+            }
         }
         return list;
     }
@@ -1497,5 +1718,290 @@ public class GeminiExtractionService {
             }
         }
         return new ArrayList<>(basketGroups.values());
+    }
+
+    public static boolean isSection2Content(String text) {
+        if (text == null || text.isBlank()) return false;
+        String lower = text.toLowerCase();
+
+        boolean hasSectionPattern = Pattern.compile("(?m)^\\s*2\\.\\d+(?:\\.\\d+)*\\s+").matcher(text).find();
+        boolean hasCourseCode = Pattern.compile("(?i)(?:\\(?\\s*course\\s*code\\s*[-:]\\s*[0-9]{3}[A-Z]?\\s*\\)?)").matcher(text).find();
+        boolean hasProposedIntake = Pattern.compile("(?i)(?:\\(?\\s*proposed\\s*intake\\s*[-:]\\s*[0-9]+\\s*\\)?)").matcher(text).find();
+        boolean hasMinEligibility = lower.contains("minimum eligibility requirements");
+        boolean hasDegreeProg = lower.contains("degree programme") || lower.contains("degree program");
+        boolean hasAvailUni = lower.contains("available university") || lower.contains("available universities") || lower.contains("offering university");
+
+        if (hasSectionPattern && (hasCourseCode || hasProposedIntake || hasMinEligibility || hasDegreeProg || hasAvailUni)) {
+            return true;
+        }
+        if (hasCourseCode && (hasMinEligibility || hasDegreeProg || hasAvailUni || hasProposedIntake)) {
+            return true;
+        }
+        return false;
+    }
+
+    public static String cleanFieldText(String s) {
+        if (s == null) return "";
+        return s.replaceAll("^[•*§\\-–—:\\s\t\uF0A7\u2022]+", "")
+                .replaceAll("[\\t\\r\\n]+", " ")
+                .replaceAll("\\s{2,}", " ")
+                .trim();
+    }
+
+    public static String deriveUniCode(String courseCode, String uniName) {
+        if (courseCode == null || courseCode.isBlank()) {
+            courseCode = "000";
+        }
+        String cleanCode = courseCode.replaceAll("[^0-9A-Za-z]", "").toUpperCase();
+        if (uniName == null || uniName.isBlank()) {
+            return cleanCode;
+        }
+        String upperUni = uniName.toUpperCase();
+        String suffix = "";
+        if (upperUni.contains("MORATUWA")) suffix = "M";
+        else if (upperUni.contains("COLOMBO") || upperUni.contains("UCSC")) suffix = "C";
+        else if (upperUni.contains("PERADENIYA")) suffix = "P";
+        else if (upperUni.contains("JAYEWARDENE") || upperUni.contains("SJP")) suffix = "J";
+        else if (upperUni.contains("KELANIYA")) suffix = "K";
+        else if (upperUni.contains("JAFFNA")) suffix = "J";
+        else if (upperUni.contains("RUHUNA")) suffix = "R";
+        else if (upperUni.contains("EASTERN") && !upperUni.contains("SOUTH")) suffix = "E";
+        else if (upperUni.contains("SOUTH EASTERN") || upperUni.contains("SEUSL")) suffix = "SE";
+        else if (upperUni.contains("RAJARATA") || upperUni.contains("RUSL")) suffix = "RA";
+        else if (upperUni.contains("WAYAMBA") || upperUni.contains("WUSL")) suffix = "W";
+        else if (upperUni.contains("SABARAGAMUWA") || upperUni.contains("SUSL")) suffix = "S";
+        else if (upperUni.contains("UVA") || upperUni.contains("WELLASSA") || upperUni.contains("UWU")) suffix = "UW";
+        else if (upperUni.contains("VISUAL") || upperUni.contains("PERFORMING") || upperUni.contains("UVPA")) suffix = "V";
+        else if (upperUni.contains("VAVUNIYA")) suffix = "VA";
+        else if (upperUni.contains("GAMPAHA") || upperUni.contains("WICKRAMARACHCHI")) suffix = "GW";
+        else {
+            String initials = upperUni.replaceAll("[^A-Z]", "");
+            suffix = initials.length() > 0 ? initials.substring(0, 1) : "U";
+        }
+        return cleanCode + suffix;
+    }
+
+    public List<Map<String, Object>> extractSection2CoursesAndUniCodes(String text) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (text == null || text.isBlank()) return list;
+
+        Set<String> seenCourses = new HashSet<>();
+        Set<String> seenUniCodes = new HashSet<>();
+        String currentStream = "Other Streams (Different Subject Streams)";
+
+        Pattern streamPattern = Pattern.compile("(?im)^\\s*(?:2\\.\\d+(?:\\.\\d+)?\\s+)?([A-Za-z &\\-/]+?\\b(?:STREAM|STREAMS)\\b.*?)$");
+        Matcher sm = streamPattern.matcher(text);
+        if (sm.find()) {
+            currentStream = normalizeStreamName(sm.group(1));
+        } else {
+            currentStream = normalizeStreamName(text);
+        }
+
+        Pattern entryPattern = Pattern.compile("(?m)^\\s*(2\\.\\d+(?:\\.\\d+)+)\\s+([^\r\n]+)");
+        List<Integer> startIndices = new ArrayList<>();
+        List<String> sectionNumbers = new ArrayList<>();
+        List<String> courseHeaders = new ArrayList<>();
+
+        Matcher em = entryPattern.matcher(text);
+        while (em.find()) {
+            String title = em.group(2).trim();
+            if (title.toUpperCase().contains("STREAM") || title.toUpperCase().contains("STREAMS")) {
+                currentStream = normalizeStreamName(title);
+                continue;
+            }
+            startIndices.add(em.start());
+            sectionNumbers.add(em.group(1).trim());
+            courseHeaders.add(title);
+        }
+
+        if (startIndices.isEmpty()) {
+            Pattern ccPattern = Pattern.compile("(?i)(?:^|\\r?\\n)\\s*(?:([^\r\n]+)\\r?\\n)?\\s*\\(?\\s*course\\s*code\\s*[-:]\\s*([0-9]{3}[A-Z]?)");
+            Matcher ccm = ccPattern.matcher(text);
+            while (ccm.find()) {
+                startIndices.add(ccm.start());
+                sectionNumbers.add("");
+                courseHeaders.add(ccm.group(1) != null ? ccm.group(1).trim() : "");
+            }
+        }
+
+        if (startIndices.isEmpty() && Pattern.compile("(?i)course\\s*code\\s*[-:]").matcher(text).find()) {
+            startIndices.add(0);
+            sectionNumbers.add("");
+            courseHeaders.add("");
+        }
+
+        Pattern codePattern = Pattern.compile("(?i)(?:\\(?\\s*course\\s*code\\s*[-:]\\s*|\\bcode\\s*[-:]\\s*)([0-9]{3}[A-Z]?)");
+        Pattern intakePattern = Pattern.compile("(?i)(?:\\(?\\s*proposed\\s*intake\\s*[-:]\\s*|\\(?\\s*intake\\s*[-:]\\s*)([0-9]+)");
+        Pattern eligPattern = Pattern.compile("(?is)minimum\\s+eligibility\\s+requirements\\s*(?:for\\s+admission\\s*)?[:\\-–—](.+?)(?=(?:[•*§\\-]?\\s*(?:degree\\s*programme|degree\\s*program|available\\s*universit|duration)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
+        Pattern degreePattern = Pattern.compile("(?is)(?:[•*§\\-]?\\s*)?degree\\s+programme\\s*[:\\-–—](.+?)(?=(?:[•*§\\-]?\\s*(?:available\\s*universit|duration|minimum\\s*eligibility)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
+        Pattern uniPattern = Pattern.compile("(?is)(?:[•*§\\-]?\\s*)?available\\s+universit(?:y|ies)\\s*[:\\-–—](.+?)(?=(?:[•*§\\-]?\\s*(?:duration|degree\\s*programme|minimum\\s*eligibility)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
+        Pattern durationPattern = Pattern.compile("(?i)(?:[•*§\\-]?\\s*)?duration\\s*[:\\-–—]\\s*([0-9]+\\s*(?:years?|yrs?|months?))");
+
+        List<String> knownUnis = new ArrayList<>();
+        knownUnis.addAll(getDynamicUniversities());
+        knownUnis.addAll(KNOWN_UNIVERSITIES);
+        knownUnis = knownUnis.stream().filter(u -> u != null && !u.isBlank()).distinct().sorted((a, b) -> Integer.compare(b.length(), a.length())).toList();
+
+        for (int i = 0; i < startIndices.size(); i++) {
+            int start = startIndices.get(i);
+            int end = (i + 1 < startIndices.size()) ? startIndices.get(i + 1) : text.length();
+            String block = text.substring(start, end).trim();
+
+            String secNum = sectionNumbers.get(i);
+            String courseName = courseHeaders.get(i);
+
+            String blockStream = currentStream;
+            if (secNum.startsWith("2.2.1")) blockStream = "Arts";
+            else if (secNum.startsWith("2.2.2")) blockStream = "Commerce";
+            else if (secNum.startsWith("2.2.3")) blockStream = "Biological Science";
+            else if (secNum.startsWith("2.2.4")) {
+                if (courseName.toLowerCase().contains("engineering") || courseName.toLowerCase().contains("technology") || courseName.toLowerCase().contains("textile")) {
+                    blockStream = "Engineering Technology";
+                } else {
+                    blockStream = "Physical Science";
+                }
+            } else if (secNum.startsWith("2.2.5")) blockStream = "Engineering Technology";
+            else if (secNum.startsWith("2.2.6")) blockStream = "Biosystems Technology";
+            else if (secNum.startsWith("2.2.7")) blockStream = "Indigenous Medicine";
+
+            // Extract Course Code
+            String courseCode = "";
+            Matcher cm = codePattern.matcher(block);
+            if (cm.find()) {
+                courseCode = cm.group(1).trim().toUpperCase();
+            }
+
+            // Extract Proposed Intake
+            int proposedIntake = 0;
+            Matcher im = intakePattern.matcher(block);
+            if (im.find()) {
+                proposedIntake = parseSeatCount(im.group(1));
+            }
+
+            // Extract Minimum Eligibility Requirements
+            String minimumEligibility = "";
+            Matcher ematch = eligPattern.matcher(block);
+            if (ematch.find()) {
+                minimumEligibility = cleanFieldText(ematch.group(1));
+            }
+
+            // Extract Degree Programme
+            String degreeProgramme = "";
+            Matcher dm = degreePattern.matcher(block);
+            if (dm.find()) {
+                degreeProgramme = cleanFieldText(dm.group(1));
+            }
+
+            // Extract Available Universities
+            List<String> unis = new ArrayList<>();
+            Matcher um = uniPattern.matcher(block);
+            if (um.find()) {
+                String rawUniText = um.group(1).trim();
+                String[] candidateLines = rawUniText.split("[\\r\\n,;]+");
+                for (String cand : candidateLines) {
+                    String cleanedU = cleanFieldText(cand);
+                    if (cleanedU.isBlank()) continue;
+                    boolean matched = false;
+                    for (String ku : knownUnis) {
+                        if (cleanedU.toUpperCase().contains(ku.toUpperCase()) || ku.toUpperCase().contains(cleanedU.toUpperCase())) {
+                            // Prefer title-cased or cleaned text from page
+                            String bestName = cleanedU.length() >= ku.length() ? cleanedU : ku;
+                            if (!unis.contains(bestName)) unis.add(bestName);
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched && looksLikeUniversity(cleanedU)) {
+                        if (!unis.contains(cleanedU)) unis.add(cleanedU);
+                    }
+                }
+            }
+
+            if (unis.isEmpty()) {
+                for (String ku : knownUnis) {
+                    if (block.toUpperCase().contains(ku.toUpperCase())) {
+                        if (!unis.contains(ku)) unis.add(ku);
+                    }
+                }
+            }
+
+            // Extract Duration
+            String duration = "";
+            Matcher durM = durationPattern.matcher(block);
+            if (durM.find()) {
+                duration = cleanFieldText(durM.group(1));
+            } else {
+                Matcher numDur = Pattern.compile("(?i)duration\\s*[:\\-–—]\\s*([0-9]+)").matcher(block);
+                if (numDur.find()) {
+                    duration = String.format("%02d years", Integer.parseInt(numDur.group(1)));
+                }
+            }
+
+            // Aptitude test boolean
+            boolean aptitudeTest = Pattern.compile("(?i)\\b(?:aptitude\\s*test|practical\\s*test|aptitude)\\b").matcher(block).find();
+
+            // Refine Course Name if empty
+            if (courseName.isBlank()) {
+                Matcher beforeCC = Pattern.compile("(?im)^\\s*(?:2\\.\\d+(?:\\.\\d+)*\\s+)?([A-Za-z0-9 &\\(\\)/\\-,]+?)\\s*(?=\\r?\\n\\s*\\(?\\s*course\\s*code)").matcher(block);
+                if (beforeCC.find()) {
+                    courseName = beforeCC.group(1).trim();
+                } else {
+                    courseName = "Course " + (courseCode.isBlank() ? (i + 1) : courseCode);
+                }
+            }
+            courseName = cleanFieldText(courseName);
+
+            // Refine Course Code if empty
+            if (courseCode.isBlank()) {
+                courseCode = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+            }
+
+            // 1. Create COURSE staging item
+            String cKey = courseCode.toUpperCase() + "|||" + courseName.toUpperCase();
+            if (!seenCourses.contains(cKey)) {
+                seenCourses.add(cKey);
+                Map<String, Object> courseItem = new LinkedHashMap<>();
+                courseItem.put("moduleType", "COURSE");
+                courseItem.put("code", courseCode);
+                courseItem.put("name", courseName);
+                courseItem.put("streamName", blockStream);
+                courseItem.put("totalIntake", proposedIntake);
+                courseItem.put("minimumEligibility", minimumEligibility);
+                if (!degreeProgramme.isBlank()) {
+                    courseItem.put("degreeTitle", degreeProgramme);
+                }
+                list.add(courseItem);
+            }
+
+            // 2. Create UNI_CODE staging items
+            if (unis.isEmpty()) {
+                unis.add("");
+            }
+            for (String uName : unis) {
+                if (uName.isBlank()) continue;
+                String uKey = courseCode.toUpperCase() + "|||" + uName.toUpperCase();
+                if (!seenUniCodes.contains(uKey)) {
+                    seenUniCodes.add(uKey);
+                    Map<String, Object> uniItem = new LinkedHashMap<>();
+                    uniItem.put("moduleType", "UNI_CODE");
+                    uniItem.put("courseName", courseName);
+                    uniItem.put("universityName", uName);
+                    uniItem.put("intake", proposedIntake);
+                    uniItem.put("degreeProgram", degreeProgramme);
+                    uniItem.put("duration", duration.isBlank() ? "04 years" : duration);
+                    uniItem.put("aptitudeTest", aptitudeTest);
+                    uniItem.put("streamName", blockStream);
+
+                    String uCode = findUniCode(courseName, uName);
+                    if (uCode == null || uCode.isBlank()) {
+                        uCode = deriveUniCode(courseCode, uName);
+                    }
+                    uniItem.put("code", uCode);
+                    list.add(uniItem);
+                }
+            }
+        }
+
+        return list;
     }
 }

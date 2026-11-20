@@ -118,10 +118,11 @@ export interface Subject {
 
 export interface ArtsBasket {
   id: string;
-  basketNumber: number;
   basketName: string;
-  minSubjectsRequired: number;
-  maxSubjectsAllowed: number;
+  availableSubjects?: string;
+  basketNumber?: number;
+  minSubjectsRequired?: number;
+  maxSubjectsAllowed?: number;
   rulesDescription?: string;
   createdAt?: string;
   updatedAt?: string;

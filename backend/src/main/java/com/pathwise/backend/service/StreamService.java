@@ -58,6 +58,21 @@ public class StreamService {
         return subjectRepository.save(subject);
     }
 
+    @Transactional
+    public Subject updateSubject(UUID id, Subject updated) {
+        Subject existing = subjectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Subject not found: " + id));
+        if (updated.getName() != null) existing.setName(updated.getName());
+        if (updated.getCode() != null) existing.setCode(updated.getCode());
+        if (updated.getBasketCategory() != null) existing.setBasketCategory(updated.getBasketCategory());
+        return subjectRepository.save(existing);
+    }
+
+    @Transactional
+    public void deleteSubject(UUID id) {
+        subjectRepository.deleteById(id);
+    }
+
     public List<StreamSubject> getSubjectsForStream(UUID streamId) {
         return streamSubjectRepository.findByStreamId(streamId);
     }

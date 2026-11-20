@@ -21,11 +21,14 @@ public class ArtsBasket {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "basket_number", nullable = false)
+    @Column(name = "basket_number")
     private Integer basketNumber;
 
     @Column(name = "basket_name", nullable = false)
     private String basketName;
+
+    @Column(name = "available_subjects", columnDefinition = "TEXT")
+    private String availableSubjects;
 
     @Column(name = "min_subjects_required")
     @Builder.Default

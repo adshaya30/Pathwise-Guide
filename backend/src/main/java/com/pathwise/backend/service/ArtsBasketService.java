@@ -33,17 +33,30 @@ public class ArtsBasketService {
 
     @Transactional
     public ArtsBasket createBasket(ArtsBasket basket) {
+        if (basket.getBasketNumber() == null) {
+            int max = artsBasketRepository.findAll().stream()
+                    .mapToInt(b -> b.getBasketNumber() != null ? b.getBasketNumber() : 0)
+                    .max().orElse(0);
+            basket.setBasketNumber(max + 1);
+        }
+        if (basket.getMinSubjectsRequired() == null) {
+            basket.setMinSubjectsRequired(1);
+        }
+        if (basket.getMaxSubjectsAllowed() == null) {
+            basket.setMaxSubjectsAllowed(3);
+        }
         return artsBasketRepository.save(basket);
     }
 
     @Transactional
     public ArtsBasket updateBasket(UUID id, ArtsBasket updated) {
         ArtsBasket existing = getBasketById(id);
-        existing.setBasketNumber(updated.getBasketNumber());
-        existing.setBasketName(updated.getBasketName());
-        existing.setMinSubjectsRequired(updated.getMinSubjectsRequired());
-        existing.setMaxSubjectsAllowed(updated.getMaxSubjectsAllowed());
-        existing.setRulesDescription(updated.getRulesDescription());
+        if (updated.getBasketNumber() != null) existing.setBasketNumber(updated.getBasketNumber());
+        if (updated.getBasketName() != null) existing.setBasketName(updated.getBasketName());
+        if (updated.getAvailableSubjects() != null) existing.setAvailableSubjects(updated.getAvailableSubjects());
+        if (updated.getMinSubjectsRequired() != null) existing.setMinSubjectsRequired(updated.getMinSubjectsRequired());
+        if (updated.getMaxSubjectsAllowed() != null) existing.setMaxSubjectsAllowed(updated.getMaxSubjectsAllowed());
+        if (updated.getRulesDescription() != null) existing.setRulesDescription(updated.getRulesDescription());
         return artsBasketRepository.save(existing);
     }
 
