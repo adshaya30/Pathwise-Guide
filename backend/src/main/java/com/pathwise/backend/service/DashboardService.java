@@ -17,7 +17,6 @@ public class DashboardService {
     private final CourseRepository courseRepository;
     private final UniCodeRepository uniCodeRepository;
     private final CutoffRepository cutoffRepository;
-    private final DistrictRepository districtRepository;
 
     public DashboardStatsDto getDashboardStats() {
         long totalUploaded = documentRepository.count();
@@ -32,7 +31,7 @@ public class DashboardService {
         long totalCourses = courseRepository.count();
         long totalUniCodes = uniCodeRepository.count();
         long totalCutoffs = cutoffRepository.count();
-        long totalDistricts = districtRepository.count();
+        long totalDistricts = 25L;
 
         var recentDocuments = documentRepository.findAllByOrderByCreatedAtDesc()
                 .stream()

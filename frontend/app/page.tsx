@@ -18,6 +18,12 @@ export default function Home() {
 
         <div className="flex items-center gap-4">
           <Link
+            href="/advisor"
+            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 transition flex items-center gap-1.5"
+          >
+            <span>✨ AI Advisor</span>
+          </Link>
+          <Link
             href="/special-provisions"
             className="text-xs font-semibold text-gray-700 dark:text-zinc-300 hover:text-indigo-600 px-3 py-1.5 rounded-lg transition"
           >
@@ -59,10 +65,17 @@ export default function Home() {
         {/* Action Buttons */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link
-            href="/admin"
-            className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5"
+            href="/advisor"
+            className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 flex items-center gap-2"
           >
-            Launch Admin Portal Control Center
+            <span>✨ Ask AI Academic Advisor</span>
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Hybrid RAG</span>
+          </Link>
+          <Link
+            href="/admin"
+            className="px-6 py-3.5 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-800 dark:text-zinc-200 border border-gray-200 dark:border-zinc-800 text-sm font-semibold rounded-xl shadow-xs transition-all"
+          >
+            Admin Portal Control Center
           </Link>
           <Link
             href="/special-provisions"

@@ -9,11 +9,9 @@ import {
   Course,
   UniCode,
   Cutoff,
-  District,
   ArtsBasket,
   ArtsBasketSubject,
   SpecialProvision,
-  AptitudeRequirement,
   OlRequirement,
   Stream,
   Subject,
@@ -228,29 +226,6 @@ export async function deleteCutoff(id: string): Promise<void> {
   await fetch(`${API_BASE}/admin/cutoffs/${id}`, { method: 'DELETE' });
 }
 
-// Districts
-export async function getDistricts(): Promise<District[]> {
-  return fetchJson<District[]>('/admin/districts');
-}
-
-export async function createDistrict(district: Partial<District>): Promise<District> {
-  return fetchJson<District>('/admin/districts', {
-    method: 'POST',
-    body: JSON.stringify(district),
-  });
-}
-
-export async function updateDistrict(id: string, district: Partial<District>): Promise<District> {
-  return fetchJson<District>(`/admin/districts/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(district),
-  });
-}
-
-export async function deleteDistrict(id: string): Promise<void> {
-  await fetch(`${API_BASE}/admin/districts/${id}`, { method: 'DELETE' });
-}
-
 // Arts Baskets
 export async function getArtsBaskets(): Promise<ArtsBasket[]> {
   return fetchJson<ArtsBasket[]>('/admin/arts-baskets');
@@ -321,29 +296,6 @@ export async function updateSpecialProvision(id: string, sp: Partial<SpecialProv
 
 export async function deleteSpecialProvision(id: string): Promise<void> {
   await fetch(`${API_BASE}/admin/special-provisions/${id}`, { method: 'DELETE' });
-}
-
-// Aptitude Requirements
-export async function getAptitudes(): Promise<AptitudeRequirement[]> {
-  return fetchJson<AptitudeRequirement[]>('/admin/aptitude');
-}
-
-export async function createAptitude(req: Partial<AptitudeRequirement>): Promise<AptitudeRequirement> {
-  return fetchJson<AptitudeRequirement>('/admin/aptitude', {
-    method: 'POST',
-    body: JSON.stringify(req),
-  });
-}
-
-export async function updateAptitude(id: string, req: Partial<AptitudeRequirement>): Promise<AptitudeRequirement> {
-  return fetchJson<AptitudeRequirement>(`/admin/aptitude/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(req),
-  });
-}
-
-export async function deleteAptitude(id: string): Promise<void> {
-  await fetch(`${API_BASE}/admin/aptitude/${id}`, { method: 'DELETE' });
 }
 
 // O/L Requirements

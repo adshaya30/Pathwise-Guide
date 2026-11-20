@@ -52,6 +52,10 @@ public class UniCodeService {
         existing.setCourseName(updated.getCourseName());
         existing.setUniversityId(updated.getUniversityId());
         existing.setUniversityName(updated.getUniversityName());
+        existing.setIntake(updated.getIntake());
+        existing.setDegreeProgram(updated.getDegreeProgram());
+        existing.setDuration(updated.getDuration());
+        existing.setAptitudeTest(updated.getAptitudeTest());
 
         if (existing.getCourseId() != null) {
             courseRepository.findById(existing.getCourseId())

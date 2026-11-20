@@ -180,151 +180,74 @@ export default function CoursesPage() {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-gray-50/75 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase">
-                <th className="px-4 py-3.5">Code</th>
-                <th className="px-4 py-3.5">Course Name & Degree Title</th>
+                <th className="px-4 py-3.5">Course Code</th>
+                <th className="px-4 py-3.5">Course Name</th>
                 <th className="px-4 py-3.5">Stream</th>
                 <th className="px-4 py-3.5 text-center">Intake</th>
-                <th className="px-4 py-3.5">Minimum Eligibility</th>
-                <th className="px-4 py-3.5">University Offerings</th>
+                <th className="px-4 py-3.5">Minimum Requirement</th>
                 <th className="px-4 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-zinc-900">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     Loading courses...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-zinc-400">
                     No courses found.
                   </td>
                 </tr>
               ) : (
                 filtered.map((course) => {
                   const offerings = parseOfferings(course.details);
-                  const isExpanded = expandedCourseId === course.id;
                   const intakeVal = getCourseIntake(course, offerings);
                   const eligibilityVal = parseEligibility(course);
 
                   return (
-                    <React.Fragment key={course.id}>
-                      <tr className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60 transition-colors">
-                        <td className="px-4 py-3.5 font-bold font-mono text-indigo-700 dark:text-indigo-400">
-                          {course.code}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="font-semibold text-gray-900 dark:text-zinc-100">{course.name}</div>
-                          {course.degreeTitle && (
-                            <div className="text-xs text-gray-500 dark:text-zinc-400">{course.degreeTitle}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-gray-600 dark:text-zinc-300">
-                          {course.streamName || '—'}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80">
-                            {intakeVal}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-gray-700 dark:text-zinc-300 max-w-xs">
-                          <span className="line-clamp-2" title={eligibilityVal}>
-                            {eligibilityVal}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5">
+                    <tr key={course.id} className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60 transition-colors">
+                      <td className="px-4 py-3.5 font-bold font-mono text-indigo-700 dark:text-indigo-400">
+                        {course.code}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="font-semibold text-gray-900 dark:text-zinc-100">{course.name}</div>
+                        {course.degreeTitle && (
+                          <div className="text-xs text-gray-500 dark:text-zinc-400">{course.degreeTitle}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-gray-600 dark:text-zinc-300">
+                        {course.streamName || '—'}
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80">
+                          {intakeVal}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-gray-700 dark:text-zinc-300 max-w-md">
+                        <p className="line-clamp-3 leading-relaxed" title={eligibilityVal}>
+                          {eligibilityVal}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => setExpandedCourseId(isExpanded ? null : course.id)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition"
+                            onClick={() => handleOpenEdit(course)}
+                            className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded border border-indigo-200 dark:border-indigo-900"
                           >
-                            <span>{offerings.length} Universities</span>
-                            <span className="text-[10px]">{isExpanded ? '▲' : '▼'}</span>
+                            Edit
                           </button>
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleOpenEdit(course)}
-                              className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(course.id)}
-                              className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Expandable University Offerings Panel */}
-                      {isExpanded && (
-                        <tr className="bg-gray-50/50 dark:bg-zinc-900/40">
-                          <td colSpan={7} className="px-6 py-4">
-                            <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                              University Offerings, Durations & Intake Capacities
-                            </h5>
-                            {offerings.length === 0 ? (
-                              <p className="text-xs text-gray-400 italic">No specific university offerings listed yet.</p>
-                            ) : (
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {offerings.map((off, idx) => {
-                                  const durationStr = off.duration
-                                    ? (typeof off.duration === 'number' ? `${off.duration} Years` : off.duration)
-                                    : (course.durationYears ? `${course.durationYears} Years` : '—');
-
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className="p-3.5 bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-lg text-xs shadow-xs"
-                                    >
-                                      <p className="font-semibold text-gray-900 dark:text-zinc-100">
-                                        {off.universityName} {off.universityCode ? `(${off.universityCode})` : ''}
-                                      </p>
-                                      <div className="mt-2 space-y-1 text-gray-600 dark:text-zinc-400 text-[11px]">
-                                        <p>
-                                          Intake Capacity:{' '}
-                                          <strong className="text-gray-900 dark:text-zinc-100">
-                                            {off.intakeCapacity ?? 'N/A'}
-                                          </strong>
-                                        </p>
-                                        <p>
-                                          Duration:{' '}
-                                          <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                                            {durationStr}
-                                          </span>
-                                        </p>
-                                        {off.medium && (
-                                          <p>
-                                            Medium:{' '}
-                                            <span className="text-gray-800 dark:text-zinc-200 font-medium">
-                                              {off.medium}
-                                            </span>
-                                          </p>
-                                        )}
-                                        {off.specialization && (
-                                          <p>
-                                            Specialization:{' '}
-                                            <span className="font-semibold text-amber-700 dark:text-amber-400">
-                                              {off.specialization}
-                                            </span>
-                                          </p>
-                                        )}
-                                        {off.faculty && <p>Faculty: {off.faculty}</p>}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                          <button
+                            onClick={() => handleDelete(course.id)}
+                            className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded border border-rose-200 dark:border-rose-900"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -383,23 +306,10 @@ export default function CoursesPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-              Degree Title
-            </label>
-            <input
-              type="text"
-              value={formData.degreeTitle || ''}
-              onChange={(e) => setFormData({ ...formData, degreeTitle: e.target.value })}
-              placeholder="Enter Degree Title"
-              className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                Total Course Intake
+                Intake Capacity
               </label>
               <input
                 type="number"
@@ -410,22 +320,38 @@ export default function CoursesPage() {
                     totalIntake: e.target.value ? parseInt(e.target.value) : undefined,
                   })
                 }
-                placeholder="Leave blank to sum from offerings"
+                placeholder="e.g. 5440"
                 className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-                Minimum Eligibility
+                Degree Title (Optional)
               </label>
               <input
                 type="text"
-                value={formData.minimumEligibility || ''}
-                onChange={(e) => setFormData({ ...formData, minimumEligibility: e.target.value })}
-                placeholder="Enter Minimum Eligibility"
+                value={formData.degreeTitle || ''}
+                onChange={(e) => setFormData({ ...formData, degreeTitle: e.target.value })}
+                placeholder="e.g. Bachelor of Science Honours in ..."
                 className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
+              Minimum Eligibility Requirements for Admission *
+            </label>
+            <textarea
+              rows={4}
+              value={formData.minimumEligibility || ''}
+              onChange={(e) => setFormData({ ...formData, minimumEligibility: e.target.value })}
+              placeholder="e.g. At least two 'C' grades and a 'S' grade in Biology, Chemistry and Physics at the G.C.E. (Advanced Level) Examination."
+              className="w-full p-2.5 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none leading-relaxed"
+            />
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Criteria following &quot;Minimum eligibility requirements for admission :&quot; in the UGC Handbook.
+            </p>
           </div>
 
           <div>

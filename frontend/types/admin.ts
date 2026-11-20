@@ -178,16 +178,10 @@ export interface UniCode {
   courseName: string;
   universityId: string;
   universityName: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface District {
-  id: string;
-  code: string;
-  name: string;
-  province: string;
-  hasDisadvantage: boolean;
+  intake?: number | null;
+  degreeProgram?: string;
+  duration?: string;
+  aptitudeTest?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -236,19 +230,6 @@ export interface Cutoff {
   ratnapura?: number | null;
   kegalle?: number | null;
   nvqDistricts?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface AptitudeRequirement {
-  id: string;
-  courseOfStudy?: string;
-  courseName: string;
-  universityName: string;
-  uniCode: string;
-  courseId?: string;
-  universityId?: string;
-  conductedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }

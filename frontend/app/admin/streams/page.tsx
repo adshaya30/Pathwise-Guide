@@ -78,10 +78,14 @@ export default function StreamsPage() {
   const handleSaveStream = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = { ...streamFormData };
+      if (!payload.code && payload.name) {
+        payload.code = payload.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+      }
       if (editingStreamId) {
-        await updateStream(editingStreamId, streamFormData);
+        await updateStream(editingStreamId, payload);
       } else {
-        await createStream(streamFormData);
+        await createStream(payload);
       }
       setIsStreamModalOpen(false);
       loadData();
@@ -93,7 +97,11 @@ export default function StreamsPage() {
   const handleSaveSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createSubject(subjectFormData);
+      const payload = { ...subjectFormData };
+      if (!payload.code && payload.name) {
+        payload.code = payload.name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      }
+      await createSubject(payload);
       setIsSubjectModalOpen(false);
       setSubjectFormData({ code: '', name: '', basketCategory: 'GENERAL' });
       loadData();
@@ -156,31 +164,27 @@ export default function StreamsPage() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-gray-50/75 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase">
-                  <th className="px-4 py-3.5">Stream Code</th>
                   <th className="px-4 py-3.5">Stream Name</th>
-                  <th className="px-4 py-3.5">Subject Descriptions</th>
+                  <th className="px-4 py-3.5">Available Subjects</th>
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-zinc-900">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
                       Loading streams...
                     </td>
                   </tr>
                 ) : streams.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
                       No streams found.
                     </td>
                   </tr>
                 ) : (
                   streams.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60">
-                      <td className="px-4 py-3.5 font-bold font-mono text-indigo-700 dark:text-indigo-400">
-                        {s.code}
-                      </td>
                       <td className="px-4 py-3.5 font-semibold text-gray-900 dark:text-zinc-100">
                         {s.name}
                       </td>
@@ -216,7 +220,6 @@ export default function StreamsPage() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-gray-50/75 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase">
-                  <th className="px-4 py-3.5">Subject Code</th>
                   <th className="px-4 py-3.5">Subject Name</th>
                   <th className="px-4 py-3.5">Category</th>
                 </tr>
@@ -224,22 +227,19 @@ export default function StreamsPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-zinc-900">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={2} className="px-6 py-12 text-center text-gray-500">
                       Loading subjects...
                     </td>
                   </tr>
                 ) : subjects.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={2} className="px-6 py-12 text-center text-gray-500">
                       No subjects added yet.
                     </td>
                   </tr>
                 ) : (
                   subjects.map((sub) => (
                     <tr key={sub.id} className="hover:bg-gray-50/60 dark:hover:bg-zinc-900/60">
-                      <td className="px-4 py-3.5 font-bold font-mono text-indigo-700 dark:text-indigo-400">
-                        {sub.code}
-                      </td>
                       <td className="px-4 py-3.5 font-semibold text-gray-900 dark:text-zinc-100">
                         {sub.name}
                       </td>
@@ -293,14 +293,14 @@ export default function StreamsPage() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1">
-              Description / Subject Combinations
+              Available Subjects
             </label>
             <textarea
               rows={3}
               value={streamFormData.description || ''}
               onChange={(e) => setStreamFormData({ ...streamFormData, description: e.target.value })}
-              placeholder="Enter Description / Subject Combinations"
-              className="w-full p-2.5 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg"
+              placeholder="Enter Available Subjects (e.g. Combined Mathematics, Physics, Chemistry / Information Technology)"
+              className="w-full p-2.5 text-xs bg-gray-50 dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-900 dark:text-zinc-100"
             />
           </div>
 

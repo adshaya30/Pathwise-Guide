@@ -33,7 +33,7 @@ public class GeminiExtractionService {
     @Value("${pathwise.gemini.api-key:}")
     private String geminiApiKey;
 
-    @Value("${pathwise.gemini.model:gemini-flash-lite-latest}")
+    @Value("${pathwise.gemini.model:gemini-3.5-flash}")
     private String geminiModel;
 
     public static final List<String> DISTRICT_KEYS = List.of(
@@ -77,8 +77,8 @@ public class GeminiExtractionService {
     );
 
     private static final List<String> APPROVED_MODELS = List.of(
-            "gemini-flash-lite-latest",
             "gemini-3.5-flash",
+            "gemini-flash-lite-latest",
             "gemini-3.8-flash",
             "gemini-flash-latest"
     );
@@ -162,6 +162,11 @@ public class GeminiExtractionService {
             String prompt = String.format("""
                 You are an expert OCR table extractor specialized in UGC Sri Lanka University Admission Handbooks and Cutoff Documents.
 
+                This page contains:
+                "UNIVERSITY ADMISSION - ACADEMIC YEAR ...
+                [Based on the results of the G.C.E. (Advanced Level) Examination ... (after re- scrutiny)]
+                Minimum \\"Z\\" Scores for selection to various Courses of Study of Universities, in respect of each district"
+
                 CRITICAL PROVINCE GROUP EXTRACTION (Part %d of %d):
                 You MUST extract ALL course and university rows visible on this page ONLY for the following specific districts:
                 %s
@@ -171,14 +176,20 @@ public class GeminiExtractionService {
 
                 Rules:
                 1. Extract ALL courses & universities on this page for EVERY one of the listed districts (%s).
-                2. Special column aliases:
+                2. Score specifications:
+                   - Minimum Z-scores must be decimal values strictly within the range 0.0000 to 3.0000 (e.g. 1.8492, 0.9541, 2.1500).
+                   - If a cutoff is designated as 'NVQ', output exactly 'NVQ'.
+                   - If a cutoff is 'NQC', output 'NQC'.
+                   - If not offered, absent, or represented as a dash, output '-'.
+                   - If blank or empty, output '-'.
+                3. Special column aliases:
                    - For RATNAPURA: Column header may be printed as 'RATNAPURA' / 'RATHNAPURA' / 'RATNA.'. Output district as 'RATNAPURA'.
                    - For KURUNEGALA: Column header may be printed as 'KURUNEGALA' / 'KURU.' / 'KURUN.'. Output district as 'KURUNEGALA'.
                    - For KEGALLE: Column header may be printed as 'KEGALLA' / 'KEGALLE' / 'KEG.'. Output district as 'KEGALLE'.
-                3. Do NOT include table headers, markdown code fences (no ```), or intro text.
-                4. Return ONLY data rows starting with `|`.
-                5. If a cutoff mark is 'NVQ', 'NQC', '-', or blank, still include the row with that exact value (e.g. 'NVQ', 'NQC', '-'). Do NOT skip 'NVQ' entries.
-                6. Do NOT extract districts that are not in this group.
+                4. Do NOT include table headers, markdown code fences (no ```), or intro text.
+                5. Return ONLY data rows starting with `|`.
+                6. Do NOT skip 'NVQ' entries.
+                7. Do NOT extract districts that are not in this group.
                 """, part, totalParts, String.join(", ", group), String.join(", ", group));
 
             try {
@@ -277,7 +288,12 @@ public class GeminiExtractionService {
                         // Clean any spacing inside decimals e.g. "2. 3517"
                         String cleanedNum = scoreStr.replaceAll("\\s+", "");
                         double score = Double.parseDouble(cleanedNum);
-                        districtMap.put(districtKey, score);
+                        if (score >= 0.0 && score <= 3.0) {
+                            districtMap.put(districtKey, score);
+                        } else {
+                            log.warn("Cutoff score out of valid range [0.0000 - 3.0000]: {} for {} in {}", score, groupKey, districtKey);
+                            districtMap.put(districtKey, null);
+                        }
                     } catch (NumberFormatException e) {
                         districtMap.put(districtKey, null);
                     }
@@ -352,8 +368,24 @@ public class GeminiExtractionService {
             8. DISTRICT CUTOFF MARKS TABLE (if present on this page):
                - Unpivot each course & university column into standard 4-column rows:
                  `| District | Course of Study | University | Minimum Z-Score / Cutoff |`
-            9. ARTS SUBJECT BASKETS (G.C.E. A/L Arts stream basket selection rules):
-               `| Basket | Subject | Guidance / Rule |`
+            9. ARTS SUBJECT BASKETS & GUIDANCE (UGC Section 2.2.1 Arts Stream):
+               When the page contains '2.2.1 ARTS STREAM' or 'Basket' with 'Guidance for selection of subjects from basket', extract the baskets into standard rows:
+               `| Basket Number | Basket Name | Subject | Guidance / Selection Rule |`
+               Rules:
+               - 'Basket Number': integer (e.g., 1, 2, 3, 4).
+               - 'Basket Name': name of the basket (e.g., 'Social Sciences', 'Humanities', 'Aesthetic Studies', 'Languages').
+               - 'Subject': individual subject belonging to this basket (e.g., 'Economics', 'History', 'Geography', 'Sinhala', 'Tamil').
+               - 'Guidance / Selection Rule': the guidance rule for selecting subjects from this basket (e.g., 'Candidates can select a maximum of two subjects from Basket 1').
+            10. SECTION 2: STREAM DETAILS, AVAILABLE COURSES & OFFERING UNIVERSITIES:
+               (Essential information for preparation for admission to first degree programmes / Courses of study under each stream / Courses for which students from different subject streams are eligible)
+               `| Stream | Course of Study | Offering University | Minimum Eligibility / Requirements |`
+               CRITICAL RULES FOR SECTION 2:
+               - Identify the Stream name for the courses (e.g., 'Arts', 'Commerce', 'Biological Science', 'Physical Science', 'Engineering Technology', 'Biosystems Technology', 'Indigenous Medicine', or 'Other Streams (Different Subject Streams)').
+               - If the section heading mentions 'COURSES OF STUDY FOR WHICH STUDENTS FROM DIFFERENT SUBJECT STREAMS ARE ELIGIBLE', set Stream to 'Other Streams (Different Subject Streams)'.
+               - Extract ALL Courses of Study described under each Stream.
+               - Extract ALL Universities listed as offering each course. If multiple universities offer the course (e.g., Colombo, Peradeniya, Sri Jayewardenepura, Kelaniya), output a separate row for EACH University:
+                 | Biological Science | Medicine | University of Colombo | At least 3 passes in Biology, Chemistry, Physics/Agri |
+                 | Biological Science | Medicine | University of Peradeniya | At least 3 passes in Biology, Chemistry, Physics/Agri |
 
             RULES:
             - If this page contains a table, output ONLY the clean Markdown table starting with `|`.
@@ -393,6 +425,14 @@ public class GeminiExtractionService {
                  "2. DISTRIBUTION OF PLACES (ANNEX B / UNIVERSITY-WISE INTAKE)" -> {
                 result.pageType = "COURSE";
                 result.items = parseMarkdownCourses(cleaned);
+            }
+            case "9. ARTS SUBJECT BASKETS" -> {
+                result.pageType = "ARTS_BASKET";
+                result.items = parseMarkdownArtsBaskets(cleaned);
+            }
+            case "10. SECTION 2: STREAM COURSES AND UNIVERSITIES" -> {
+                result.pageType = "COURSE";
+                result.items = parseMarkdownStreamCoursesAndUniversities(cleaned);
             }
             default -> {
                 if (cleaned.lines().anyMatch(l -> l.trim().startsWith("|"))) {
@@ -566,6 +606,151 @@ public class GeminiExtractionService {
         return list;
     }
 
+    private List<Map<String, Object>> parseMarkdownStreamCoursesAndUniversities(String markdown) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        Set<String> seenCourses = new HashSet<>();
+        Set<String> seenUniCodes = new HashSet<>();
+        String currentStream = "Other Streams (Different Subject Streams)";
+
+        for (String line : markdown.split("\\r?\\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("|") || trimmed.contains("---") || trimmed.toLowerCase().contains("course of study |")) {
+                continue;
+            }
+            String[] cells = trimmed.split("\\|");
+            if (cells.length >= 4) {
+                String streamCol = cells[1].trim();
+                String courseCol = cells[2].trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
+                String uniCol = cells[3].trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
+                String eligCol = cells.length >= 5 ? cells[4].trim() : "";
+
+                if (!streamCol.isBlank() && !streamCol.equalsIgnoreCase("Stream")) {
+                    currentStream = normalizeStreamName(streamCol);
+                }
+
+                if (courseCol.isBlank()) continue;
+
+                // 1. Course record for Course Table (course name + stream name)
+                String cKey = courseCol.toUpperCase();
+                if (!seenCourses.contains(cKey)) {
+                    seenCourses.add(cKey);
+                    Map<String, Object> courseItem = new HashMap<>();
+                    courseItem.put("moduleType", "COURSE");
+                    courseItem.put("name", courseCol);
+                    courseItem.put("streamName", currentStream);
+                    if (!eligCol.isBlank()) {
+                        courseItem.put("minimumEligibility", eligCol);
+                    }
+                    String generatedCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                    courseItem.put("code", generatedCode);
+                    list.add(courseItem);
+                }
+
+                // 2. University Course record for Uni-Codes Table (course name + university name)
+                if (!uniCol.isBlank()) {
+                    String[] unis = uniCol.split("[,;/]+");
+                    for (String u : unis) {
+                        String uName = u.trim();
+                        if (uName.isBlank()) continue;
+
+                        String offeringKey = cKey + "|||" + uName.toUpperCase();
+                        if (!seenUniCodes.contains(offeringKey)) {
+                            seenUniCodes.add(offeringKey);
+                            Map<String, Object> uniItem = new HashMap<>();
+                            uniItem.put("moduleType", "UNI_CODE");
+                            uniItem.put("courseName", courseCol);
+                            uniItem.put("universityName", uName);
+                            uniItem.put("streamName", currentStream);
+                            String uCode = findUniCode(courseCol, uName);
+                            uniItem.put("code", uCode != null ? uCode : "");
+                            if (!eligCol.isBlank()) {
+                                uniItem.put("minimumEligibility", eligCol);
+                            }
+                            list.add(uniItem);
+                        }
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    private List<Map<String, Object>> parseMarkdownArtsBaskets(String markdown) {
+        Map<Integer, Map<String, Object>> basketGroups = new LinkedHashMap<>();
+
+        for (String line : markdown.split("\\r?\\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("|") || trimmed.contains("---") || trimmed.toLowerCase().contains("basket number |") || trimmed.toLowerCase().contains("guidance / selection")) {
+                continue;
+            }
+            String[] cells = trimmed.split("\\|");
+            if (cells.length >= 4) {
+                String basketNumStr = cells[1].trim().replaceAll("[^0-9]", "");
+                int basketNumber = 1;
+                try {
+                    if (!basketNumStr.isBlank()) {
+                        basketNumber = Integer.parseInt(basketNumStr);
+                    }
+                } catch (NumberFormatException ignored) {}
+
+                String basketName = cells[2].trim();
+                String subjectName = cells[3].trim().replaceAll("^[ï‚µ•*\\s]+", "").trim();
+                String guidance = cells.length >= 5 ? cells[4].trim() : "";
+
+                if (basketName.isBlank() && basketNumber > 0) {
+                    basketName = "Basket " + basketNumber;
+                }
+
+                int finalBasketNumber = basketNumber;
+                String finalBasketName = basketName;
+                Map<String, Object> group = basketGroups.computeIfAbsent(basketNumber, k -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("moduleType", "ARTS_BASKET");
+                    map.put("basketNumber", finalBasketNumber);
+                    map.put("basketName", finalBasketName);
+                    map.put("minSubjectsRequired", 1);
+                    map.put("maxSubjectsAllowed", 3);
+                    map.put("rulesDescription", "");
+                    map.put("subjects", new ArrayList<String>());
+                    return map;
+                });
+
+                if (!guidance.isBlank()) {
+                    String existingRules = (String) group.get("rulesDescription");
+                    if (existingRules == null || existingRules.isBlank()) {
+                        group.put("rulesDescription", guidance);
+                    } else if (!existingRules.contains(guidance)) {
+                        group.put("rulesDescription", existingRules + "; " + guidance);
+                    }
+                }
+
+                @SuppressWarnings("unchecked")
+                List<String> subjects = (List<String>) group.get("subjects");
+                if (!subjectName.isBlank() && !subjects.contains(subjectName)) {
+                    subjects.add(subjectName);
+                }
+            }
+        }
+
+        return new ArrayList<>(basketGroups.values());
+    }
+
+    public static String normalizeStreamName(String raw) {
+        if (raw == null || raw.isBlank()) return "Other Streams (Different Subject Streams)";
+        String lower = raw.trim().toLowerCase();
+        if (lower.contains("bio") && lower.contains("tech")) return "Biosystems Technology";
+        if (lower.contains("eng") && lower.contains("tech")) return "Engineering Technology";
+        if (lower.contains("bio")) return "Biological Science";
+        if (lower.contains("phys") || lower.contains("math")) return "Physical Science";
+        if (lower.contains("comm") || lower.contains("manage")) return "Commerce";
+        if (lower.contains("arts") || lower.contains("humanities")) return "Arts";
+        if (lower.contains("indigenous") || lower.contains("ayurved") || lower.contains("siddha") || lower.contains("unani")) return "Indigenous Medicine";
+        if (lower.contains("different") || lower.contains("other") || lower.contains("eligible")) {
+            return "Other Streams (Different Subject Streams)";
+        }
+        return raw.trim();
+    }
+
     // ─── GEMINI VISION API CALLER WITH RETRY & EXPONENTIAL BACKOFF ───────────────
 
     private String callGeminiVisionWithRetry(String base64Image, int pageNumber, String prompt) {
@@ -626,10 +811,14 @@ public class GeminiExtractionService {
         String cleanKey = geminiApiKey != null ? geminiApiKey.trim() : "";
 
         List<String> modelsToTry = new ArrayList<>();
-        if (geminiModel != null && !geminiModel.isBlank() && !APPROVED_MODELS.contains(geminiModel)) {
-            modelsToTry.add(geminiModel);
+        if (geminiModel != null && !geminiModel.isBlank()) {
+            modelsToTry.add(geminiModel.trim());
         }
-        modelsToTry.addAll(APPROVED_MODELS);
+        for (String model : APPROVED_MODELS) {
+            if (!modelsToTry.contains(model)) {
+                modelsToTry.add(model);
+            }
+        }
 
         String lastError = "";
         for (String modelName : modelsToTry) {
@@ -679,7 +868,15 @@ public class GeminiExtractionService {
                 || lower.contains("differently abled") || lower.contains("blind (braille)") || lower.contains("special provision")
                 || lower.contains("aptitude test") || lower.contains("practical test") || lower.contains("practical/ aptitude")
                 || lower.contains("arts basket") || lower.contains("subject basket") || lower.contains("basket 1")
-                || lower.contains("medium of instruction");
+                || lower.contains("guidance for selection of subjects")
+                || lower.contains("guidance for selection of subjects from basket")
+                || lower.contains("selection of subjects from basket")
+                || (lower.contains("2.2.1") && lower.contains("arts"))
+                || lower.contains("medium of instruction")
+                || lower.contains("essential information for preparation for admission")
+                || lower.contains("different subject streams are eligible")
+                || lower.contains("different subject streams")
+                || (lower.contains("section 2") && (lower.contains("stream") || lower.contains("first degree programmes")));
 
         if (hasTableKeywords) return true;
 
@@ -694,28 +891,36 @@ public class GeminiExtractionService {
         if (text == null || text.isBlank()) return false;
         String lower = text.toLowerCase();
 
-        // Handbook table exclusions
-        if (lower.contains("uni - code") || lower.contains("uni-code") || lower.contains("uni-codes assigned")
-                || lower.contains("places available for admission") || lower.contains("proposed intake")
-                || lower.contains("ordinary level") || lower.contains("sin. lang.") || lower.contains("tam. lang.")
-                || lower.contains("differently abled") || lower.contains("aptitude test") || lower.contains("practical test")) {
-            return false;
+        boolean hasCutoffHeading = lower.contains("minimum \"z\" score") || lower.contains("minimum \"z\" scores")
+                || lower.contains("minimum 'z' - score") || lower.contains("minimum 'z' score")
+                || lower.contains("minimum 'z' scores") || lower.contains("minimum z-score")
+                || lower.contains("minimum z score") || lower.contains("minimum z-scores")
+                || lower.contains("cutoff") || lower.contains("cut-off")
+                || lower.contains("minimum marks for university admission")
+                || lower.contains("courses of study of universities, in respect of each district")
+                || (lower.contains("academic year") && (lower.contains("after re- scrutiny") || lower.contains("after re-scrutiny") || lower.contains("after rescrutiny")));
+
+        // Handbook table exclusions (only apply if page does NOT have an explicit cutoff heading)
+        if (!hasCutoffHeading) {
+            if (lower.contains("uni - code") || lower.contains("uni-code") || lower.contains("uni-codes assigned")
+                    || lower.contains("places available for admission") || lower.contains("proposed intake")
+                    || lower.contains("ordinary level") || lower.contains("sin. lang.") || lower.contains("tam. lang.")
+                    || lower.contains("differently abled") || lower.contains("blind (braille)")) {
+                return false;
+            }
         }
 
         long uniqueDistrictCount = NON_UNIVERSITY_DISTRICT_NAMES.stream()
                 .filter(d -> lower.contains(d.toLowerCase()))
                 .count();
 
-        boolean hasCutoffHeading = lower.contains("minimum z-score") || lower.contains("minimum 'z' - score")
-                || lower.contains("minimum 'z' score") || lower.contains("cutoff") || lower.contains("cut-off")
-                || lower.contains("minimum marks for university admission");
+        long zScoreDecimalCount = Pattern.compile("[-+]?[0-3]\\s*\\.\\s*\\d{2,4}\\b").matcher(text).results().count();
+        long nqcCount = Pattern.compile("(?i)\\b(NQC|N/A|NVQ)\\b").matcher(text).results().count();
 
-        long zScoreDecimalCount = Pattern.compile("[-+]?\\d\\s*\\.\\s*\\d{2,4}\\b").matcher(text).results().count();
-        long nqcCount = Pattern.compile("(?i)\\b(NQC|N/A)\\b").matcher(text).results().count();
-
+        if (hasCutoffHeading) return true;
         if (uniqueDistrictCount >= 2) return true;
-        if (hasCutoffHeading && (zScoreDecimalCount >= 2 || nqcCount >= 2 || uniqueDistrictCount >= 1)) return true;
-        return zScoreDecimalCount >= 6;
+        if (zScoreDecimalCount >= 6) return true;
+        return (zScoreDecimalCount >= 2 || nqcCount >= 2) && uniqueDistrictCount >= 1;
     }
 
     public static String identifyTableType(String content) {
@@ -728,9 +933,11 @@ public class GeminiExtractionService {
                 .orElse("")
                 .toLowerCase();
 
-        long decimalZScoreCount = Pattern.compile("[-+]?\\d\\.\\d{3,4}\\b").matcher(content).results().count();
-        long nqcCount = Pattern.compile("(?i)\\b(NQC|N/A)\\b").matcher(content).results().count();
-        boolean hasCutoffKeyword = lower.contains("minimum z-score") || lower.contains("cutoff") || lower.contains("cut-off");
+        long decimalZScoreCount = Pattern.compile("[-+]?[0-3]\\.\\d{3,4}\\b").matcher(content).results().count();
+        long nqcCount = Pattern.compile("(?i)\\b(NQC|N/A|NVQ)\\b").matcher(content).results().count();
+        boolean hasCutoffKeyword = lower.contains("minimum z-score") || lower.contains("minimum \"z\"")
+                || lower.contains("minimum 'z'") || lower.contains("cutoff") || lower.contains("cut-off")
+                || lower.contains("courses of study of universities, in respect of each district");
 
         boolean hasDistrictHeaderOrRows = headerLine.contains("district")
                 || (lower.contains("colombo") && lower.contains("gampaha") && lower.contains("kalutara") && (decimalZScoreCount >= 2 || nqcCount >= 2));
@@ -752,6 +959,22 @@ public class GeminiExtractionService {
         }
         if (lower.contains("places available for admission") || lower.contains("proposed intake") || headerLine.contains("intake")) {
             return "1. PLACES AVAILABLE FOR ADMISSION (PROPOSED INTAKE / ANNEX A)";
+        }
+        if (lower.contains("arts stream") && (lower.contains("basket") || lower.contains("guidance for selection") || lower.contains("selection of subjects"))
+                || lower.contains("guidance for selection of subjects from basket")
+                || lower.contains("selection of subjects from basket")
+                || lower.contains("arts basket") || lower.contains("subject basket")
+                || (headerLine.contains("basket") && headerLine.contains("subject"))
+                || (headerLine.contains("basket number") && headerLine.contains("basket name"))) {
+            return "9. ARTS SUBJECT BASKETS";
+        }
+        if (lower.contains("essential information for preparation for admission")
+                || lower.contains("different subject streams are eligible")
+                || lower.contains("different subject streams")
+                || headerLine.contains("offering university")
+                || (headerLine.contains("stream") && headerLine.contains("course"))
+                || (headerLine.contains("stream") && headerLine.contains("university"))) {
+            return "10. SECTION 2: STREAM COURSES AND UNIVERSITIES";
         }
         return "GENERAL";
     }
@@ -943,7 +1166,7 @@ public class GeminiExtractionService {
         ExtractionResult result = new ExtractionResult();
         String lower = text.toLowerCase();
 
-        if (lower.contains("minimum z-score") || lower.contains("z-score") || lower.contains("cutoff") || lower.contains("cut-off")
+        if (isCutoffMarksPage(text, pageNumber) || lower.contains("minimum z-score") || lower.contains("minimum \"z\"") || lower.contains("minimum 'z'") || lower.contains("cutoff") || lower.contains("cut-off")
                 || (lower.contains("colombo") && lower.contains("gampaha") && lower.contains("kalutara"))) {
             result.pageType = "CUTOFF";
             result.confidence = 0.90;
@@ -964,6 +1187,12 @@ public class GeminiExtractionService {
             result.pageType = "APTITUDE";
             result.confidence = 0.88;
             result.items = extractAptitudeRecords(text);
+        } else if (lower.contains("arts stream") && (lower.contains("basket") || lower.contains("guidance for selection") || lower.contains("selection of subjects"))
+                || lower.contains("guidance for selection of subjects from basket")
+                || lower.contains("arts basket") || lower.contains("subject basket")) {
+            result.pageType = "ARTS_BASKET";
+            result.confidence = 0.88;
+            result.items = extractArtsBasketRecords(text);
         } else if (lower.contains("course of study") || lower.contains("intake") || lower.contains("proposed intake")) {
             result.pageType = "COURSE";
             result.confidence = 0.85;
@@ -1151,7 +1380,7 @@ public class GeminiExtractionService {
 
     private List<Map<String, Object>> extractCutoffRecords(String text) {
         List<Map<String, Object>> list = new ArrayList<>();
-        Pattern p = Pattern.compile("(?m)^\\s*(\\d{3}[A-Z]?)\\s+([A-Za-z &\\(\\)/\\-,]+?)\\s+([A-Za-z &\\(\\)/\\-,]+?)\\s+([0-9.\\-]+.*)$");
+        Pattern p = Pattern.compile("(?m)^\\s*(\\d{3}[A-Z]?)\\s+([A-Za-z &\\(\\)/\\-,]+?)\\s+([A-Za-z &\\(\\)/\\-,]+?)\\s+([0-9.\\-A-Za-z/]+.*)$");
         Matcher m = p.matcher(text);
         while (m.find()) {
             String uniCode = m.group(1).trim();
@@ -1164,19 +1393,40 @@ public class GeminiExtractionService {
             item.put("courseName", courseName);
             item.put("universityName", uniName);
 
+            List<String> nvqDistricts = new ArrayList<>();
             String[] tokens = scoresPart.split("\\s+");
             int districtIdx = 0;
             for (String tok : tokens) {
                 if (districtIdx >= DISTRICT_KEYS.size()) break;
                 String dKey = DISTRICT_KEYS.get(districtIdx);
-                try {
-                    double val = Double.parseDouble(tok);
-                    item.put(dKey, val);
+                String upper = tok.trim().toUpperCase();
+
+                if (upper.contains("NVQ")) {
+                    item.put(dKey, null);
+                    nvqDistricts.add(dKey);
                     districtIdx++;
-                } catch (NumberFormatException ignored) {}
+                } else if (upper.equals("-") || upper.equals("–") || upper.equals("—") || upper.equals("NQC") || upper.equals("N/A")) {
+                    item.put(dKey, null);
+                    districtIdx++;
+                } else {
+                    try {
+                        double val = Double.parseDouble(tok);
+                        if (val >= 0.0 && val <= 3.0) {
+                            item.put(dKey, val);
+                        } else {
+                            item.put(dKey, null);
+                        }
+                        districtIdx++;
+                    } catch (NumberFormatException ignored) {
+                        // Skip non-score words if any
+                    }
+                }
             }
             for (int i = districtIdx; i < DISTRICT_KEYS.size(); i++) {
                 item.put(DISTRICT_KEYS.get(i), null);
+            }
+            if (!nvqDistricts.isEmpty()) {
+                item.put("nvqDistricts", nvqDistricts);
             }
             item.put("validationNotes", validateCutoffDistricts(item));
             list.add(item);
@@ -1196,5 +1446,56 @@ public class GeminiExtractionService {
             list.add(item);
         }
         return list;
+    }
+
+    private List<Map<String, Object>> extractArtsBasketRecords(String text) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (text == null || text.isBlank()) return list;
+
+        Map<Integer, Map<String, Object>> basketGroups = new LinkedHashMap<>();
+        int currentBasketNumber = 1;
+        String currentBasketName = "Basket 1";
+
+        Pattern basketHeader = Pattern.compile("(?i)(?:basket|group)\\s*([0-9]+)\\s*[:\\-–—]?\\s*([A-Za-z &\\-/]+)?");
+
+        for (String rawLine : text.split("\\r?\\n")) {
+            String line = rawLine.trim();
+            if (line.isBlank()) continue;
+
+            Matcher m = basketHeader.matcher(line);
+            if (m.find()) {
+                try {
+                    currentBasketNumber = Integer.parseInt(m.group(1));
+                } catch (NumberFormatException ignored) {}
+                currentBasketName = m.group(2) != null && !m.group(2).isBlank()
+                        ? m.group(2).trim()
+                        : "Basket " + currentBasketNumber;
+                continue;
+            }
+
+            int bNum = currentBasketNumber;
+            String bName = currentBasketName;
+            Map<String, Object> group = basketGroups.computeIfAbsent(bNum, k -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("moduleType", "ARTS_BASKET");
+                map.put("basketNumber", bNum);
+                map.put("basketName", bName);
+                map.put("minSubjectsRequired", 1);
+                map.put("maxSubjectsAllowed", 3);
+                map.put("rulesDescription", "Guidance: Select subjects according to UGC Arts stream basket criteria");
+                map.put("subjects", new ArrayList<String>());
+                return map;
+            });
+
+            @SuppressWarnings("unchecked")
+            List<String> subjects = (List<String>) group.get("subjects");
+            String cleanedSub = line.replaceAll("^[•*ï‚µ\\-\\d.\\s]+", "").trim();
+            if (!cleanedSub.isBlank() && cleanedSub.length() > 2 && !cleanedSub.toLowerCase().contains("guidance") && !cleanedSub.toLowerCase().contains("basket")) {
+                if (!subjects.contains(cleanedSub)) {
+                    subjects.add(cleanedSub);
+                }
+            }
+        }
+        return new ArrayList<>(basketGroups.values());
     }
 }

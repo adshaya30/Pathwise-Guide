@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS courses (
     name VARCHAR(255) NOT NULL,
     stream_id UUID REFERENCES streams(id) ON DELETE SET NULL,
     stream_name VARCHAR(100),
+    total_intake INT,
+    minimum_eligibility TEXT,
     duration_years NUMERIC(3,1) DEFAULT 4.0,
     degree_title VARCHAR(255),
     details JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -148,6 +150,9 @@ CREATE TABLE IF NOT EXISTS courses (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS total_intake INT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS minimum_eligibility TEXT;
+
 -- Uni-Codes table
 CREATE TABLE IF NOT EXISTS uni_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -156,21 +161,25 @@ CREATE TABLE IF NOT EXISTS uni_codes (
     course_name VARCHAR(255) NOT NULL,
     university_id UUID REFERENCES universities(id) ON DELETE CASCADE,
     university_name VARCHAR(255) NOT NULL,
+    intake INT,
+    degree_program VARCHAR(255),
+    duration VARCHAR(100),
+    aptitude_test BOOLEAN DEFAULT false,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Districts table
-CREATE TABLE IF NOT EXISTS districts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(50) UNIQUE NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    province VARCHAR(100) NOT NULL,
-    has_disadvantage BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+ALTER TABLE uni_codes ADD COLUMN IF NOT EXISTS intake INT;
+ALTER TABLE uni_codes ADD COLUMN IF NOT EXISTS degree_program VARCHAR(255);
+ALTER TABLE uni_codes ADD COLUMN IF NOT EXISTS duration VARCHAR(100);
+ALTER TABLE uni_codes ADD COLUMN IF NOT EXISTS aptitude_test BOOLEAN DEFAULT false;
+ALTER TABLE uni_codes ALTER COLUMN course_id DROP NOT NULL;
+ALTER TABLE uni_codes ALTER COLUMN university_id DROP NOT NULL;
+
+-- Dropped legacy standalone tables (districts are captured as 25 columns in cutoffs; aptitude is a boolean flag in uni_codes)
+DROP TABLE IF EXISTS aptitude_requirements CASCADE;
+DROP TABLE IF EXISTS districts CASCADE;
 
 -- Special Provisions table
 CREATE TABLE IF NOT EXISTS special_provisions (
@@ -239,24 +248,6 @@ CREATE TABLE IF NOT EXISTS cutoffs (
 );
 
 ALTER TABLE cutoffs ADD COLUMN IF NOT EXISTS nvq_districts TEXT;
-
--- Aptitude Requirements table
-CREATE TABLE IF NOT EXISTS aptitude_requirements (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id UUID REFERENCES courses(id) ON DELETE SET NULL,
-    course_name VARCHAR(255) NOT NULL,
-    course_of_study VARCHAR(255),
-    university_id UUID REFERENCES universities(id) ON DELETE SET NULL,
-    university_name VARCHAR(255),
-    uni_code VARCHAR(50) DEFAULT '',
-    conducted_by VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-ALTER TABLE aptitude_requirements ADD COLUMN IF NOT EXISTS uni_code VARCHAR(50) DEFAULT '';
-ALTER TABLE aptitude_requirements ADD COLUMN IF NOT EXISTS course_of_study VARCHAR(255);
-ALTER TABLE aptitude_requirements ALTER COLUMN course_id DROP NOT NULL;
 ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS test_name;
 ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS test_description;
 ALTER TABLE aptitude_requirements DROP COLUMN IF EXISTS passing_criteria;
@@ -276,6 +267,22 @@ CREATE TABLE IF NOT EXISTS ol_requirements (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Hybrid RAG: Vector extension & Handbook Chunks table
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS handbook_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+    page_number INT NOT NULL,
+    section_title VARCHAR(255),
+    content TEXT NOT NULL,
+    embedding vector(768),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_handbook_chunks_embedding 
+ON handbook_chunks USING hnsw (embedding vector_cosine_ops);
 
 -- Seed base 25 Sri Lankan Districts
 INSERT INTO districts (code, name, province, has_disadvantage) VALUES
@@ -334,7 +341,8 @@ INSERT INTO streams (code, name, description) VALUES
 ('ARTS', 'Arts', 'Social Sciences, Humanities, Aesthetic Studies, Languages'),
 ('ENGINEERING_TECHNOLOGY', 'Engineering Technology (ET)', 'Engineering Technology, Science for Technology, Mathematics / IT'),
 ('BIOSYSTEMS_TECHNOLOGY', 'Biosystems Technology (BST)', 'Biosystems Technology, Science for Technology, Agriculture / IT'),
-('INDIGENOUS_MEDICINE', 'Indigenous Medicine', 'Ayurveda, Siddha, Unani medicine stream')
+('INDIGENOUS_MEDICINE', 'Indigenous Medicine', 'Ayurveda, Siddha, Unani medicine stream'),
+('OTHER_STREAMS', 'Other Streams (Different Subject Streams)', 'Courses of study for which students from different subject streams are eligible')
 ON CONFLICT (code) DO NOTHING;
 
 

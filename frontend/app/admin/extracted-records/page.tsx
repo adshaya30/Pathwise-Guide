@@ -288,12 +288,10 @@ export default function ExtractedRecordsReviewPage() {
             <option value="">All Academic Modules</option>
             <option value="CUTOFF">Cutoff (Z-Score)</option>
             <option value="COURSE">Course Details</option>
-            <option value="UNI_CODE">Uni-Code</option>
+            <option value="UNI_CODE">University Courses</option>
             <option value="OL_REQUIREMENT">O/L Requirements</option>
             <option value="ARTS_BASKET">Arts Basket</option>
-            <option value="DISTRICT">Districts</option>
             <option value="SPECIAL_PROVISION">Special Provisions</option>
-            <option value="APTITUDE">Aptitude Requirements</option>
             <option value="STREAM_SUBJECT">Streams & Subjects</option>
           </select>
         </div>

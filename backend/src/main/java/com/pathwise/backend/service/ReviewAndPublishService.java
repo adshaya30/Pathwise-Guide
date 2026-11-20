@@ -33,12 +33,10 @@ public class ReviewAndPublishService {
     private final UniCodeRepository uniCodeRepository;
     private final UniversityRepository universityRepository;
     private final CutoffRepository cutoffRepository;
-    private final DistrictRepository districtRepository;
     private final ArtsBasketRepository artsBasketRepository;
     private final ArtsBasketSubjectRepository artsBasketSubjectRepository;
     private final SubjectRepository subjectRepository;
     private final SpecialProvisionRepository specialProvisionRepository;
-    private final AptitudeRequirementRepository aptitudeRequirementRepository;
     private final OlRequirementRepository olRequirementRepository;
     private final StreamRepository streamRepository;
     private final ObjectMapper objectMapper;
@@ -177,6 +175,7 @@ public class ReviewAndPublishService {
         return switch (moduleType.toUpperCase()) {
             case "COURSE" -> publishCourse(payload);
             case "UNI_CODE" -> publishUniCode(payload);
+            case "UNIVERSITY" -> publishUniversity(payload);
             case "CUTOFF" -> publishCutoff(payload);
             case "DISTRICT" -> publishDistrict(payload);
             case "ARTS_BASKET" -> publishArtsBasket(payload);
@@ -226,11 +225,21 @@ public class ReviewAndPublishService {
             if (cCode.isBlank() || courseRepository.findByCode(cCode).isPresent()) {
                 cCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
             }
-            return courseRepository.save(Course.builder()
+            Course.CourseBuilder builder = Course.builder()
                     .code(cCode)
-                    .name(courseName)
-                    .build());
+                    .name(courseName);
+            if (p.has("streamName") && !p.get("streamName").isNull() && !p.get("streamName").asText().isBlank()) {
+                builder.streamName(p.get("streamName").asText().trim());
+            }
+            return courseRepository.save(builder.build());
         });
+        if (p.has("streamName") && !p.get("streamName").isNull() && !p.get("streamName").asText().isBlank()) {
+            String stream = p.get("streamName").asText().trim();
+            if (course.getStreamName() == null || course.getStreamName().isBlank()) {
+                course.setStreamName(stream);
+                course = courseRepository.save(course);
+            }
+        }
 
         // Lookup or create University
         University university = universityRepository.findByNameIgnoreCase(uniName).orElseGet(() -> {
@@ -248,8 +257,33 @@ public class ReviewAndPublishService {
         uniCode.setCourseName(course.getName());
         uniCode.setUniversityId(university.getId());
         uniCode.setUniversityName(university.getName());
+        if (p.has("intake") && !p.get("intake").isNull()) uniCode.setIntake(p.get("intake").asInt());
+        if (p.has("degreeProgram") && !p.get("degreeProgram").isNull()) uniCode.setDegreeProgram(p.get("degreeProgram").asText("").trim());
+        if (p.has("duration") && !p.get("duration").isNull()) uniCode.setDuration(p.get("duration").asText("").trim());
+        if (p.has("aptitudeTest") && !p.get("aptitudeTest").isNull()) uniCode.setAptitudeTest(p.get("aptitudeTest").asBoolean(false));
 
         UniCode saved = uniCodeRepository.save(uniCode);
+        return saved.getId().toString();
+    }
+
+    private String publishUniversity(JsonNode p) {
+        String code = p.path("code").asText("").trim().toUpperCase();
+        String name = p.path("name").asText("").trim();
+        String location = p.path("location").asText("").trim();
+        if (code.isBlank()) {
+            code = name.replaceAll("[^A-Za-z]", "").toUpperCase();
+            if (code.length() > 6) code = code.substring(0, 6);
+            if (code.isBlank()) code = "U" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        }
+
+        University uni = universityRepository.findByCode(code)
+                .or(() -> !name.isBlank() ? universityRepository.findByNameIgnoreCase(name) : Optional.empty())
+                .orElse(new University());
+        uni.setCode(code);
+        uni.setName(name);
+        if (!location.isBlank()) uni.setLocation(location);
+
+        University saved = universityRepository.save(uni);
         return saved.getId().toString();
     }
 
@@ -385,19 +419,8 @@ public class ReviewAndPublishService {
     }
 
     private String publishDistrict(JsonNode p) {
-        String code = p.path("code").asText("").trim().toUpperCase();
-        String name = p.path("name").asText("").trim();
-        String province = p.path("province").asText("").trim();
-        boolean hasDisadvantage = p.path("hasDisadvantage").asBoolean(false);
-
-        District district = districtRepository.findByCode(code).orElse(new District());
-        district.setCode(code);
-        district.setName(name);
-        district.setProvince(province);
-        district.setHasDisadvantage(hasDisadvantage);
-
-        District saved = districtRepository.save(district);
-        return saved.getId().toString();
+        log.info("District publishing skipped: legacy districts table has been dropped in favor of cutoff columns.");
+        return "DISTRICT_TABLE_DEPRECATED";
     }
 
     private String publishArtsBasket(JsonNode p) {
@@ -481,25 +504,16 @@ public class ReviewAndPublishService {
     }
 
     private String publishAptitude(JsonNode p) {
-        String courseOfStudy = p.hasNonNull("courseOfStudy") ? p.get("courseOfStudy").asText().trim() :
-                p.hasNonNull("courseName") ? p.get("courseName").asText().trim() : "";
-        String uniName = p.hasNonNull("universityName") ? p.get("universityName").asText().trim() :
-                p.hasNonNull("university") ? p.get("university").asText().trim() : "";
-        String uniCode = p.hasNonNull("uniCode") ? p.get("uniCode").asText().trim().toUpperCase() :
+        String uniCodeStr = p.hasNonNull("uniCode") ? p.get("uniCode").asText().trim().toUpperCase() :
                 p.hasNonNull("code") ? p.get("code").asText().trim().toUpperCase() : "";
-        Course course = !courseOfStudy.isBlank() ? courseRepository.findByNameIgnoreCase(courseOfStudy).orElse(null) : null;
-
-        AptitudeRequirement req = AptitudeRequirement.builder()
-                .courseId(course != null ? course.getId() : null)
-                .courseName(courseOfStudy)
-                .courseOfStudy(courseOfStudy)
-                .universityName(uniName)
-                .uniCode(uniCode)
-                .conductedBy(p.path("conductedBy").asText(uniName).trim())
-                .build();
-
-        AptitudeRequirement saved = aptitudeRequirementRepository.save(req);
-        return saved.getId().toString();
+        if (!uniCodeStr.isBlank()) {
+            uniCodeRepository.findByCode(uniCodeStr).ifPresent(uc -> {
+                uc.setAptitudeTest(true);
+                uniCodeRepository.save(uc);
+            });
+            return uniCodeStr;
+        }
+        return "APTITUDE_FLAG_UPDATED";
     }
 
     private String publishOlRequirement(JsonNode p) {

@@ -17,11 +17,9 @@ public class PublicAcademicController {
     private final CourseService courseService;
     private final UniCodeService uniCodeService;
     private final CutoffService cutoffService;
-    private final DistrictService districtService;
     private final StreamService streamService;
     private final ArtsBasketService artsBasketService;
     private final SpecialProvisionService specialProvisionService;
-    private final AptitudeService aptitudeService;
     private final UniversityService universityService;
     private final OlRequirementService olRequirementService;
 
@@ -40,11 +38,6 @@ public class PublicAcademicController {
         return ResponseEntity.ok(cutoffService.getAllCutoffs(academicYear));
     }
 
-    @GetMapping("/districts")
-    public ResponseEntity<List<District>> getDistricts() {
-        return ResponseEntity.ok(districtService.getAllDistricts());
-    }
-
     @GetMapping("/streams")
     public ResponseEntity<List<Stream>> getStreams() {
         return ResponseEntity.ok(streamService.getAllStreams());
@@ -58,11 +51,6 @@ public class PublicAcademicController {
     @GetMapping("/provisions")
     public ResponseEntity<List<SpecialProvision>> getProvisions() {
         return ResponseEntity.ok(specialProvisionService.getAllProvisions());
-    }
-
-    @GetMapping("/aptitude")
-    public ResponseEntity<List<AptitudeRequirement>> getAptitudeRequirements() {
-        return ResponseEntity.ok(aptitudeService.getAllAptitudes());
     }
 
     @GetMapping("/universities")

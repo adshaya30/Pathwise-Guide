@@ -56,6 +56,8 @@ public class DocumentProcessingService {
     private final GeminiExtractionService geminiExtractionService;
     private final SupabaseStorageService supabaseStorageService;
     private final ObjectMapper objectMapper;
+    private final GeminiEmbeddingService geminiEmbeddingService;
+    private final com.pathwise.backend.repository.HandbookChunkRepository handbookChunkRepository;
 
     @Value("${pathwise.upload.dir:uploads/handbooks}")
     private String uploadDir;
@@ -246,11 +248,14 @@ public class DocumentProcessingService {
                                     }
                                 }
 
+                                String itemModuleType = item.containsKey("moduleType") && item.get("moduleType") != null
+                                        ? item.get("moduleType").toString()
+                                        : result.pageType;
                                 String payloadJson = objectMapper.writeValueAsString(item);
                                 ExtractedRecord record = ExtractedRecord.builder()
                                         .documentId(doc.getId())
                                         .pageNumber(pageNum)
-                                        .moduleType(result.pageType)
+                                        .moduleType(itemModuleType)
                                         .status("PENDING")
                                         .rawPayload(payloadJson)
                                         .validationNotes(validationNotes)
@@ -262,6 +267,9 @@ public class DocumentProcessingService {
                             }
                         }
                     }
+
+                    // Hybrid RAG: Index narrative policy text, guidelines, and bylaws into handbook_chunks
+                    indexPageTextForRag(doc.getId(), pageNum, pageText, result.pageType);
 
                     // Update progress
                     int progress = 5 + (int) (((double) pageNum / numPages) * 90);
@@ -494,6 +502,69 @@ public class DocumentProcessingService {
             return (year - 1) + "/" + year;
         }
         return handbookAcademicYear.trim();
+    }
+
+    /**
+     * Hybrid RAG: Chunks and embeds narrative text pages (general policies, admission rules, footnotes).
+     * Excludes dense Cutoff tables which are already structured into SQL tables.
+     */
+    public void indexPageTextForRag(UUID documentId, int pageNumber, String pageText, String pageType) {
+        if (pageText == null || pageText.isBlank() || "CUTOFF".equalsIgnoreCase(pageType)) {
+            return;
+        }
+
+        try {
+            // Split page text into semantic paragraphs (delimited by blank lines or headers)
+            String[] rawParagraphs = pageText.split("\\n\\s*\\n");
+            for (String rawPara : rawParagraphs) {
+                String clean = rawPara.replaceAll("\\s+", " ").trim();
+                if (clean.length() < 60) {
+                    continue; // Skip single header lines or noise
+                }
+
+                // Identify potential chapter / section title
+                String sectionTitle = "Page " + pageNumber + " Policy Guidance";
+                String[] lines = rawPara.trim().split("\\r?\\n");
+                if (lines.length > 0 && lines[0].trim().length() < 100) {
+                    String candidate = lines[0].trim().replaceAll("[^A-Za-z0-9 .:-]", "");
+                    if (!candidate.isBlank()) {
+                        sectionTitle = candidate;
+                    }
+                }
+
+                // If paragraph is very long, chunk it into ~700 char segments
+                int chunkSize = 700;
+                for (int start = 0; start < clean.length(); start += chunkSize - 100) {
+                    int end = Math.min(start + chunkSize, clean.length());
+                    String chunkContent = clean.substring(start, end).trim();
+                    if (chunkContent.length() < 50) continue;
+
+                    String embeddingVector = geminiEmbeddingService.generateEmbeddingString(chunkContent);
+                    if (embeddingVector != null && !embeddingVector.isBlank()) {
+                        handbookChunkRepository.insertChunk(documentId, pageNumber, sectionTitle, chunkContent, embeddingVector);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Non-fatal notice during RAG indexing for doc {} page {}: {}", documentId, pageNumber, e.getMessage());
+        }
+    }
+
+    /**
+     * Manually index or re-index all pages of an existing document for RAG.
+     */
+    public long indexDocumentForRag(UUID documentId) {
+        List<DocumentPage> pages = documentPageRepository.findByDocumentIdOrderByPageNumberAsc(documentId);
+        handbookChunkRepository.deleteByDocumentId(documentId);
+        long count = 0;
+        for (DocumentPage p : pages) {
+            if (p.getRawText() != null && !p.getRawText().isBlank() && !"CUTOFF".equalsIgnoreCase(p.getPageType())) {
+                indexPageTextForRag(documentId, p.getPageNumber(), p.getRawText(), p.getPageType());
+                count++;
+            }
+        }
+        log.info("RAG indexing completed for document {}: {} pages processed.", documentId, count);
+        return handbookChunkRepository.countByDocumentId(documentId);
     }
 }
 
