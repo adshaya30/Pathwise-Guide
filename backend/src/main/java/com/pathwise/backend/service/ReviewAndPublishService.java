@@ -240,13 +240,33 @@ public class ReviewAndPublishService {
                 .orElse(new Course());
         course.setCode(code);
         course.setName(name);
-        if (p.has("streamName")) course.setStreamName(p.get("streamName").asText("").trim());
-        if (p.has("totalIntake")) course.setTotalIntake(p.get("totalIntake").asInt());
-        if (p.has("minimumEligibility")) course.setMinimumEligibility(p.get("minimumEligibility").asText("").trim());
-        if (p.has("durationYears") && !p.get("durationYears").isNull()) {
-            course.setDurationYears(BigDecimal.valueOf(p.get("durationYears").asDouble()));
+        if (p.has("streamName") && !p.get("streamName").isNull() && !p.get("streamName").asText().isBlank()) {
+            course.setStreamName(p.get("streamName").asText("").trim());
         }
-        if (p.has("degreeTitle")) course.setDegreeTitle(p.get("degreeTitle").asText("").trim());
+        if (p.has("totalIntake") && !p.get("totalIntake").isNull() && p.get("totalIntake").asInt(0) > 0) {
+            course.setTotalIntake(p.get("totalIntake").asInt());
+        } else if (p.has("intake") && !p.get("intake").isNull() && p.get("intake").asInt(0) > 0) {
+            course.setTotalIntake(p.get("intake").asInt());
+        }
+        if (p.has("minimumEligibility") && !p.get("minimumEligibility").isNull() && !p.get("minimumEligibility").asText().isBlank()) {
+            course.setMinimumEligibility(p.get("minimumEligibility").asText("").trim());
+        }
+        if (p.has("durationYears") && !p.get("durationYears").isNull()) {
+            try {
+                course.setDurationYears(BigDecimal.valueOf(p.get("durationYears").asDouble()));
+            } catch (Exception ignored) {
+                Double d = GeminiExtractionService.parseDurationYears(p.get("durationYears").asText());
+                if (d != null) course.setDurationYears(BigDecimal.valueOf(d));
+            }
+        } else if (p.has("duration") && !p.get("duration").isNull() && !p.get("duration").asText().isBlank()) {
+            Double d = GeminiExtractionService.parseDurationYears(p.get("duration").asText());
+            if (d != null) course.setDurationYears(BigDecimal.valueOf(d));
+        }
+        if (p.has("degreeTitle") && !p.get("degreeTitle").isNull() && !p.get("degreeTitle").asText().isBlank()) {
+            course.setDegreeTitle(p.get("degreeTitle").asText("").trim());
+        } else if (p.has("degreeProgram") && !p.get("degreeProgram").isNull() && !p.get("degreeProgram").asText().isBlank()) {
+            course.setDegreeTitle(p.get("degreeProgram").asText("").trim());
+        }
         if (p.has("details")) course.setDetails(p.get("details").toString());
         if (p.has("minimumRequirements")) course.setMinimumRequirements(p.get("minimumRequirements").toString());
         course.setIsActive(true);
@@ -281,6 +301,18 @@ public class ReviewAndPublishService {
             String stream = p.get("streamName").asText().trim();
             if (course.getStreamName() == null || course.getStreamName().isBlank()) {
                 course.setStreamName(stream);
+                course = courseRepository.save(course);
+            }
+        }
+        // Enrich parent course if missing degreeTitle or durationYears
+        if ((course.getDegreeTitle() == null || course.getDegreeTitle().isBlank()) && p.has("degreeProgram") && !p.get("degreeProgram").isNull() && !p.get("degreeProgram").asText().isBlank()) {
+            course.setDegreeTitle(p.get("degreeProgram").asText().trim());
+            course = courseRepository.save(course);
+        }
+        if (course.getDurationYears() == null && p.has("duration") && !p.get("duration").isNull() && !p.get("duration").asText().isBlank()) {
+            Double d = GeminiExtractionService.parseDurationYears(p.get("duration").asText());
+            if (d != null) {
+                course.setDurationYears(BigDecimal.valueOf(d));
                 course = courseRepository.save(course);
             }
         }

@@ -22,18 +22,23 @@ public class CourseService {
     }
 
     public static int compareCourseCodes(String a, String b) {
-        if (a == null) a = "";
-        if (b == null) b = "";
-        String numA = a.replaceAll("[^0-9]", "");
-        String numB = b.replaceAll("[^0-9]", "");
-        if (!numA.isBlank() && !numB.isBlank()) {
-            try {
-                int na = Integer.parseInt(numA);
-                int nb = Integer.parseInt(numB);
-                if (na != nb) return Integer.compare(na, nb);
-            } catch (NumberFormatException ignored) {}
+        String codeA = a != null ? a.trim() : "";
+        String codeB = b != null ? b.trim() : "";
+
+        boolean isStdA = codeA.matches("^\\d{3}[A-Za-z]?$");
+        boolean isStdB = codeB.matches("^\\d{3}[A-Za-z]?$");
+
+        if (isStdA && !isStdB) return -1;
+        if (!isStdA && isStdB) return 1;
+
+        if (isStdA && isStdB) {
+            int numA = Integer.parseInt(codeA.substring(0, 3));
+            int numB = Integer.parseInt(codeB.substring(0, 3));
+            if (numA != numB) return Integer.compare(numA, numB);
+            return codeA.compareToIgnoreCase(codeB);
         }
-        return a.compareToIgnoreCase(b);
+
+        return codeA.compareToIgnoreCase(codeB);
     }
 
     public Course getCourseById(UUID id) {

@@ -115,12 +115,12 @@ public class GeminiExtractionService {
     );
 
     private static final List<String> APPROVED_MODELS = List.of(
-            "gemini-3.5-flash",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
             "gemini-3.5-flash-lite",
             "gemini-3.1-flash-lite",
-            "gemini-3-flash-preview",
-            "gemini-flash-lite-latest",
-            "gemini-3.8-flash",
+            "gemini-3.5-flash",
             "gemini-flash-latest"
     );
 
@@ -762,6 +762,10 @@ public class GeminiExtractionService {
                     if (!degreeCol.isBlank()) {
                         courseItem.put("degreeTitle", degreeCol);
                     }
+                    Double durYears = parseDurationYears(durationCol);
+                    if (durYears != null) {
+                        courseItem.put("durationYears", durYears);
+                    }
                     list.add(courseItem);
                 }
 
@@ -1088,8 +1092,18 @@ public class GeminiExtractionService {
         if (lower.contains("practical/ aptitude") || lower.contains("aptitude test") || headerLine.contains("aptitude")) {
             return "7. REQUIREMENT TO PASS THE PRACTICAL/ APTITUDE TEST";
         }
-        if (lower.contains("places available for admission") || lower.contains("proposed intake") || headerLine.contains("intake")) {
-            return "1. PLACES AVAILABLE FOR ADMISSION (PROPOSED INTAKE / ANNEX A)";
+        if (isSection2Content(content)
+                || lower.contains("essential information for preparation for admission")
+                || lower.contains("different subject streams are eligible")
+                || lower.contains("different subject streams")
+                || headerLine.contains("degree programme")
+                || headerLine.contains("degree program")
+                || headerLine.contains("minimum eligibility")
+                || headerLine.contains("offering university")
+                || (headerLine.contains("stream") && headerLine.contains("course"))
+                || (headerLine.contains("stream") && headerLine.contains("university"))
+                || (headerLine.contains("section") && headerLine.contains("course code"))) {
+            return "10. SECTION 2: STREAM COURSES AND UNIVERSITIES";
         }
         if (lower.contains("arts stream") && (lower.contains("basket") || lower.contains("guidance for selection") || lower.contains("selection of subjects"))
                 || lower.contains("guidance for selection of subjects from basket")
@@ -1099,17 +1113,9 @@ public class GeminiExtractionService {
                 || (headerLine.contains("basket number") && headerLine.contains("basket name"))) {
             return "9. ARTS SUBJECT BASKETS";
         }
-        if (isSection2Content(content)
-                || lower.contains("essential information for preparation for admission")
-                || lower.contains("different subject streams are eligible")
-                || lower.contains("different subject streams")
-                || headerLine.contains("degree programme")
-                || headerLine.contains("minimum eligibility")
-                || headerLine.contains("offering university")
-                || (headerLine.contains("stream") && headerLine.contains("course"))
-                || (headerLine.contains("stream") && headerLine.contains("university"))
-                || (headerLine.contains("section") && headerLine.contains("course code"))) {
-            return "10. SECTION 2: STREAM COURSES AND UNIVERSITIES";
+        if (lower.contains("places available for admission") || lower.contains("annex a") || lower.contains("annex (a)")
+                || (headerLine.contains("course") && headerLine.contains("intake") && !headerLine.contains("eligibility") && !headerLine.contains("degree"))) {
+            return "1. PLACES AVAILABLE FOR ADMISSION (PROPOSED INTAKE / ANNEX A)";
         }
         return "GENERAL";
     }
@@ -1216,6 +1222,17 @@ public class GeminiExtractionService {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    public static Double parseDurationYears(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            Matcher m = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)").matcher(s);
+            if (m.find()) {
+                return Double.parseDouble(m.group(1));
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private String findUniCode(String courseName, String universityName) {
@@ -1833,12 +1850,12 @@ public class GeminiExtractionService {
             courseHeaders.add("");
         }
 
-        Pattern codePattern = Pattern.compile("(?i)(?:\\(?\\s*course\\s*code\\s*[-:]\\s*|\\bcode\\s*[-:]\\s*)([0-9]{3}[A-Z]?)");
-        Pattern intakePattern = Pattern.compile("(?i)(?:\\(?\\s*proposed\\s*intake\\s*[-:]\\s*|\\(?\\s*intake\\s*[-:]\\s*)([0-9]+)");
-        Pattern eligPattern = Pattern.compile("(?is)minimum\\s+eligibility\\s+requirements\\s*(?:for\\s+admission\\s*)?[:\\-–—](.+?)(?=(?:[•*§\\-]?\\s*(?:degree\\s*programme|degree\\s*program|available\\s*universit|duration)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
-        Pattern degreePattern = Pattern.compile("(?is)(?:[•*§\\-]?\\s*)?degree\\s+programme\\s*[:\\-–—](.+?)(?=(?:[•*§\\-]?\\s*(?:available\\s*universit|duration|minimum\\s*eligibility)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
-        Pattern uniPattern = Pattern.compile("(?is)(?:[•*§\\-]?\\s*)?available\\s+universit(?:y|ies)\\s*[:\\-–—](.+?)(?=(?:[•*§\\-]?\\s*(?:duration|degree\\s*programme|minimum\\s*eligibility)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
-        Pattern durationPattern = Pattern.compile("(?i)(?:[•*§\\-]?\\s*)?duration\\s*[:\\-–—]\\s*([0-9]+\\s*(?:years?|yrs?|months?))");
+        Pattern codePattern = Pattern.compile("(?i)(?:\\(?\\s*course\\s*code\\s*[-:–—]\\s*|\\bcode\\s*[-:–—]\\s*)([0-9]{3}[A-Z]?)");
+        Pattern intakePattern = Pattern.compile("(?i)(?:\\(?\\s*(?:proposed\\s*intake|total\\s*intake|intake)\\s*[-:–—]\\s*)([0-9]+)");
+        Pattern eligPattern = Pattern.compile("(?is)minimum\\s+eligibility\\s+requirements\\s*(?:for\\s+admission\\s*)?[:\\-–—]?\\s*(.+?)(?=(?:[•*§\\-]?\\s*(?:degree\\s*programme|degree\\s*program|available\\s*universit|duration)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
+        Pattern degreePattern = Pattern.compile("(?is)(?:[•*§\\-]?\\s*)?degree\\s+programm?e?\\s*[:\\-–—]?\\s*(.+?)(?=(?:[•*§\\-]?\\s*(?:available\\s*universit|duration|minimum\\s*eligibility)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
+        Pattern uniPattern = Pattern.compile("(?is)(?:[•*§\\-]?\\s*)?available\\s+universit(?:y|ies)\\s*[:\\-–—]?\\s*(.+?)(?=(?:[•*§\\-]?\\s*(?:duration|degree\\s*programme|minimum\\s*eligibility)|\\b2\\.\\d+(?:\\.\\d+)+|\\Z))");
+        Pattern durationPattern = Pattern.compile("(?i)(?:[•*§\\-]?\\s*)?duration\\s*[:\\-–—]?\\s*([0-9]+(?:\\.[0-9]+)?\\s*(?:years?|yrs?|months?))");
 
         List<String> knownUnis = new ArrayList<>();
         knownUnis.addAll(getDynamicUniversities());
@@ -1943,7 +1960,10 @@ public class GeminiExtractionService {
             // Aptitude test boolean
             boolean aptitudeTest = Pattern.compile("(?i)\\b(?:aptitude\\s*test|practical\\s*test|aptitude)\\b").matcher(block).find();
 
-            // Refine Course Name if empty
+            // Refine Course Name (strip any inline Course Code or Intake tags from header title)
+            courseName = courseName.replaceAll("(?i)\\(?\\s*course\\s*code\\s*[-:–—]\\s*[0-9]{3}[A-Z]?\\s*\\)?", "").trim();
+            courseName = courseName.replaceAll("(?i)\\(?\\s*(?:proposed\\s*intake|total\\s*intake|intake)\\s*[-:–—]\\s*[0-9]+\\s*\\)?", "").trim();
+
             if (courseName.isBlank()) {
                 Matcher beforeCC = Pattern.compile("(?im)^\\s*(?:2\\.\\d+(?:\\.\\d+)*\\s+)?([A-Za-z0-9 &\\(\\)/\\-,]+?)\\s*(?=\\r?\\n\\s*\\(?\\s*course\\s*code)").matcher(block);
                 if (beforeCC.find()) {
@@ -1972,6 +1992,10 @@ public class GeminiExtractionService {
                 courseItem.put("minimumEligibility", minimumEligibility);
                 if (!degreeProgramme.isBlank()) {
                     courseItem.put("degreeTitle", degreeProgramme);
+                }
+                Double durYears = parseDurationYears(duration);
+                if (durYears != null) {
+                    courseItem.put("durationYears", durYears);
                 }
                 list.add(courseItem);
             }

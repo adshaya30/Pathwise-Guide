@@ -7,6 +7,8 @@ import {
   rejectRecord,
   updateExtractedRecord,
   bulkApproveRecords,
+  deleteExtractedRecord,
+  bulkDeleteRecords,
 } from '@/services/adminApi';
 import { ExtractedRecord } from '@/types/admin';
 import { StatusBadge } from '@/components/admin/StatusBadge';
@@ -19,11 +21,13 @@ export default function ExtractedRecordsReviewPage() {
   const [statusFilter, setStatusFilter] = useState<string>('PENDING');
   const [moduleFilter, setModuleFilter] = useState<string>('');
 
-  // Bulk Selection State
+  // Bulk Selection & Action States
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkApproving, setIsBulkApproving] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [quickApprovingId, setQuickApprovingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Selected record for single modal review
   const [activeRecord, setActiveRecord] = useState<ExtractedRecord | null>(null);
@@ -59,22 +63,27 @@ export default function ExtractedRecordsReviewPage() {
     fetchRecords();
   }, [statusFilter, moduleFilter]);
 
-  // Pending records in current view
+  // Derived counts
   const pendingRecords = useMemo(
     () => records.filter((r) => r.status === 'PENDING'),
     [records]
   );
 
-  const isAllPendingSelected = useMemo(
-    () => pendingRecords.length > 0 && pendingRecords.every((r) => selectedIds.has(r.id)),
-    [pendingRecords, selectedIds]
+  const selectedPendingCount = useMemo(
+    () => records.filter((r) => selectedIds.has(r.id) && r.status === 'PENDING').length,
+    [records, selectedIds]
+  );
+
+  const isAllSelected = useMemo(
+    () => records.length > 0 && records.every((r) => selectedIds.has(r.id)),
+    [records, selectedIds]
   );
 
   const toggleSelectAll = () => {
-    if (isAllPendingSelected) {
+    if (isAllSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(pendingRecords.map((r) => r.id)));
+      setSelectedIds(new Set(records.map((r) => r.id)));
     }
   };
 
@@ -92,21 +101,31 @@ export default function ExtractedRecordsReviewPage() {
 
   // ─── Bulk Approve Selected ────────────────────────────────────────────────
   const handleBulkApproveSelected = async () => {
-    if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    if (!confirm(`Are you sure you want to approve and publish ${count} selected records to live academic tables?`)) {
+    const targetIds = records
+      .filter((r) => selectedIds.has(r.id) && r.status === 'PENDING')
+      .map((r) => r.id);
+
+    if (targetIds.length === 0) {
+      alert('None of the selected records are in PENDING status.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to approve and publish ${targetIds.length} selected pending record(s) to live academic tables?`)) {
       return;
     }
 
     try {
       setIsBulkApproving(true);
       setBulkFeedback(null);
-      const res = await bulkApproveRecords(Array.from(selectedIds), undefined, reviewerName);
-      setSelectedIds(new Set());
+      const res = await bulkApproveRecords(targetIds, undefined, reviewerName);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        targetIds.forEach((id) => next.delete(id));
+        return next;
+      });
       setBulkFeedback({
         type: 'success',
-        message: `Successfully approved and published ${res.approvedCount} records to live tables!${res.failedCount > 0 ? ` (${res.failedCount} failed)` : ''
-          }`,
+        message: `Successfully approved and published ${res.approvedCount} records to live tables!${res.failedCount > 0 ? ` (${res.failedCount} failed)` : ''}`,
       });
       fetchRecords();
     } catch (err: any) {
@@ -136,14 +155,102 @@ export default function ExtractedRecordsReviewPage() {
       setSelectedIds(new Set());
       setBulkFeedback({
         type: 'success',
-        message: `Successfully approved and published ${res.approvedCount} records to live tables!${res.failedCount > 0 ? ` (${res.failedCount} failed)` : ''
-          }`,
+        message: `Successfully approved and published ${res.approvedCount} records to live tables!${res.failedCount > 0 ? ` (${res.failedCount} failed)` : ''}`,
       });
       fetchRecords();
     } catch (err: any) {
       setBulkFeedback({ type: 'error', message: 'Bulk approval failed: ' + err.message });
     } finally {
       setIsBulkApproving(false);
+    }
+  };
+
+  // ─── Delete Actions ───────────────────────────────────────────────────────
+  const handleDeleteSingle = async (recordId: string, moduleType: string) => {
+    if (!confirm(`Are you sure you want to delete this ${moduleType} staging record? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      setDeletingId(recordId);
+      await deleteExtractedRecord(recordId);
+      setBulkFeedback({
+        type: 'success',
+        message: 'Record deleted from staging successfully.',
+      });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(recordId);
+        return next;
+      });
+      if (activeRecord?.id === recordId) {
+        setActiveRecord(null);
+      }
+      fetchRecords();
+    } catch (err: any) {
+      setBulkFeedback({ type: 'error', message: 'Delete failed: ' + err.message });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Are you sure you want to permanently delete ${count} selected staging record(s)?`)) {
+      return;
+    }
+
+    try {
+      setIsBulkDeleting(true);
+      setBulkFeedback(null);
+      const res = await bulkDeleteRecords(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setBulkFeedback({
+        type: 'success',
+        message: res.message || `Deleted ${res.totalDeleted} record(s) from staging.`,
+      });
+      fetchRecords();
+    } catch (err: any) {
+      setBulkFeedback({ type: 'error', message: 'Bulk delete failed: ' + err.message });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleDeleteAllInView = async () => {
+    const total = records.length;
+    if (total === 0) {
+      alert('No records to delete.');
+      return;
+    }
+
+    const scopeDesc = [
+      statusFilter ? statusFilter.toUpperCase() : 'ALL',
+      moduleFilter ? `in [${moduleFilter}]` : '',
+    ].filter(Boolean).join(' ');
+
+    if (!confirm(`WARNING: Are you sure you want to permanently delete all ${total} ${scopeDesc} staging records?\n\nThis will clear them out so you can re-extract fresh handbook data without duplicates.`)) {
+      return;
+    }
+
+    try {
+      setIsBulkDeleting(true);
+      setBulkFeedback(null);
+      const res = await bulkDeleteRecords(
+        undefined,
+        statusFilter || 'ALL',
+        moduleFilter || undefined
+      );
+      setSelectedIds(new Set());
+      setBulkFeedback({
+        type: 'success',
+        message: res.message || `Deleted ${res.totalDeleted} record(s) from staging.`,
+      });
+      fetchRecords();
+    } catch (err: any) {
+      setBulkFeedback({ type: 'error', message: 'Delete all failed: ' + err.message });
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -297,30 +404,62 @@ export default function ExtractedRecordsReviewPage() {
         </div>
 
         {/* Bulk Action Buttons */}
-        <div className="flex items-center gap-2">
-          {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Bulk Approve Selected */}
+          {selectedPendingCount > 0 && (
             <button
               onClick={handleBulkApproveSelected}
-              disabled={isBulkApproving}
+              disabled={isBulkApproving || isBulkDeleting}
               className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
               </svg>
-              <span>Approve Selected ({selectedIds.size})</span>
+              <span>Approve Selected ({selectedPendingCount})</span>
             </button>
           )}
 
+          {/* Bulk Delete Selected */}
+          {selectedIds.size > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={isBulkApproving || isBulkDeleting}
+              className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
+              title="Delete all selected staging records"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>{isBulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.size})`}</span>
+            </button>
+          )}
+
+          {/* Bulk Approve All Pending in View */}
           {pendingRecords.length > 0 && (
             <button
               onClick={handleBulkApproveAllPending}
-              disabled={isBulkApproving}
+              disabled={isBulkApproving || isBulkDeleting}
               className="px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 border border-emerald-300 dark:border-emerald-800 disabled:opacity-50 rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>Approve All Pending ({pendingRecords.length})</span>
+            </button>
+          )}
+
+          {/* Delete All in View (Clear Staging) */}
+          {records.length > 0 && (
+            <button
+              onClick={handleDeleteAllInView}
+              disabled={isBulkApproving || isBulkDeleting}
+              className="px-3 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-300 dark:border-rose-800 disabled:opacity-50 rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
+              title="Delete all records matching current filter from staging"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>Delete All in View ({records.length})</span>
             </button>
           )}
 
@@ -338,16 +477,28 @@ export default function ExtractedRecordsReviewPage() {
 
       {/* Selection Summary Pill */}
       {selectedIds.size > 0 && (
-        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 px-4 py-2 rounded-lg flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
-          <span className="font-semibold">
-            {selectedIds.size} record{selectedIds.size > 1 ? 's' : ''} selected
-          </span>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
-          >
-            Clear Selection
-          </button>
+        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 px-4 py-2.5 rounded-lg flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold">
+              {selectedIds.size} record{selectedIds.size > 1 ? 's' : ''} selected
+              {selectedPendingCount > 0 ? ` (${selectedPendingCount} pending)` : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDeleteSelected}
+              disabled={isBulkDeleting}
+              className="px-2.5 py-1 text-xs font-semibold text-rose-700 bg-rose-100 hover:bg-rose-200 rounded-md transition-colors"
+            >
+              Delete Selected
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold ml-2"
+            >
+              Clear Selection
+            </button>
+          </div>
         </div>
       )}
 
@@ -360,11 +511,11 @@ export default function ExtractedRecordsReviewPage() {
                 <th className="px-4 py-3.5 w-10 text-center">
                   <input
                     type="checkbox"
-                    checked={isAllPendingSelected}
+                    checked={isAllSelected}
                     onChange={toggleSelectAll}
-                    disabled={pendingRecords.length === 0}
+                    disabled={records.length === 0}
                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-40"
-                    title="Select/Deselect All Pending"
+                    title="Select/Deselect All in View"
                   />
                 </th>
                 <th className="px-4 py-3.5">Module Type</th>
@@ -406,8 +557,7 @@ export default function ExtractedRecordsReviewPage() {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelect(rec.id)}
-                          disabled={!isPending}
-                          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-30"
+                          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                         />
                       </td>
 
@@ -438,7 +588,7 @@ export default function ExtractedRecordsReviewPage() {
                           {isPending && (
                             <button
                               onClick={() => handleQuickApprove(rec)}
-                              disabled={quickApprovingId === rec.id}
+                              disabled={quickApprovingId === rec.id || deletingId === rec.id}
                               className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800 rounded-md shadow-xs transition-colors flex items-center gap-1"
                               title="Approve and publish this record immediately"
                             >
@@ -460,6 +610,20 @@ export default function ExtractedRecordsReviewPage() {
                             className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-xs transition-colors"
                           >
                             {rec.status === 'PENDING' ? 'Review & Edit' : 'Inspect'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSingle(rec.id, rec.moduleType)}
+                            disabled={deletingId === rec.id}
+                            className="p-1.5 text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors"
+                            title="Delete this record from staging"
+                          >
+                            {deletingId === rec.id ? (
+                              <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
                           </button>
                         </div>
                       </td>
@@ -557,15 +721,27 @@ export default function ExtractedRecordsReviewPage() {
             />
           </div>
 
-          {activeRecord?.status === 'PENDING' && (
-            <div className="pt-2 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1 mr-4">
+          <div className="pt-3 border-t border-gray-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => activeRecord && handleDeleteSingle(activeRecord.id, activeRecord.moduleType)}
+              disabled={isSubmitting || deletingId === activeRecord?.id}
+              className="px-3 py-2 text-xs font-semibold text-rose-600 hover:text-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>{deletingId === activeRecord?.id ? 'Deleting...' : 'Delete Record'}</span>
+            </button>
+
+            {activeRecord?.status === 'PENDING' && (
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="text"
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Rejection reason if rejecting..."
-                  className="text-xs p-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg flex-1"
+                  className="text-xs p-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg w-52"
                 />
                 <button
                   type="button"
@@ -575,18 +751,17 @@ export default function ExtractedRecordsReviewPage() {
                 >
                   Reject Record
                 </button>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm"
+                >
+                  {isSubmitting ? 'Publishing...' : 'Approve & Publish to Database'}
+                </button>
               </div>
-
-              <button
-                type="button"
-                onClick={handleApprove}
-                disabled={isSubmitting}
-                className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm"
-              >
-                {isSubmitting ? 'Publishing...' : 'Approve & Publish to Database'}
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Modal>
     </div>

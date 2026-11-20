@@ -7,8 +7,22 @@ import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Modal } from '@/components/admin/Modal';
 
 const compareCourseCodes = (a?: string, b?: string) => {
-  const codeA = a || '';
-  const codeB = b || '';
+  const codeA = (a || '').trim();
+  const codeB = (b || '').trim();
+
+  const isStdA = /^\d{3}[A-Za-z]?$/.test(codeA);
+  const isStdB = /^\d{3}[A-Za-z]?$/.test(codeB);
+
+  if (isStdA && !isStdB) return -1;
+  if (!isStdA && isStdB) return 1;
+
+  if (isStdA && isStdB) {
+    const numA = parseInt(codeA.substring(0, 3), 10);
+    const numB = parseInt(codeB.substring(0, 3), 10);
+    if (numA !== numB) return numA - numB;
+    return codeA.localeCompare(codeB);
+  }
+
   return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
 };
 
